@@ -1,0 +1,10 @@
+Options -Indexes
+
+# Route all requests through index.php
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ index.php [QSA,L]
+
+# Increase PHP timeouts for long audio streams (Apache only)
+php_value max_execution_time 0
+php_value output_buffering Off
