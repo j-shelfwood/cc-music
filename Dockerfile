@@ -12,6 +12,10 @@ RUN apt-get update && apt-get install -y \
 RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
     && chmod +x /usr/local/bin/yt-dlp
 
+# Install deno (required for yt-dlp JS challenge solving / signature extraction)
+RUN curl -fsSL https://deno.land/install.sh | sh -s -- --no-modify-path \
+    && mv /root/.deno/bin/deno /usr/local/bin/deno
+
 WORKDIR /app
 
 COPY server/ ./
