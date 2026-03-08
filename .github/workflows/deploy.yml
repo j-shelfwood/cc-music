@@ -62,26 +62,10 @@ jobs:
               git -C /opt/cc-music pull
             fi
 
-            cd /opt/cc-music
-
-            # Rebuild and restart (--no-cache ensures yt-dlp stays current)
-            docker build -t cc-music . --quiet
-            docker rm -f cc-music 2>/dev/null || true
-            docker run -d \
-              --name cc-music \
-              --restart unless-stopped \
-              --network host \
-              -e YTDLP_PROXY=socks5://127.0.0.1:40000 \
-              -e YTDLP_COOKIES=/cookies.txt \
-              -v /opt/cc-music/cookies.txt:/cookies.txt \
-              cc-music
+            # Restart PHP server (runs natively via systemd, no Docker)
+            systemctl restart cc-music
 
             sleep 2
-            STATUS=\$(docker inspect --format='{{.State.Status}}' cc-music 2>/dev/null || echo 'missing')
-            if [ \"\$STATUS\" != 'running' ]; then
-              echo 'ERROR: container not running'
-              docker logs cc-music 2>&1 | tail -20
-              exit 1
-            fi
+            systemctl is-active --quiet cc-music || { echo 'ERROR: cc-music not running'; journalctl -u cc-music -n 20 --no-pager; exit 1; }
             echo 'Deploy complete: https://cc-music.shelfwood.co'
           "
