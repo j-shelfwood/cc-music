@@ -43,8 +43,10 @@ function to_hms(int $seconds): string {
 
 // Run yt-dlp and parse its newline-delimited JSON output
 function ytdlp_json(string $args): array {
-    $proxy = getenv('YTDLP_PROXY') ?: 'socks5://127.0.0.1:40000';
-    $cmd = 'yt-dlp --no-warnings --proxy ' . escapeshellarg($proxy) . ' ' . $args . ' 2>/dev/null';
+    $proxy   = getenv('YTDLP_PROXY')   ?: 'socks5://127.0.0.1:40000';
+    $cookies = getenv('YTDLP_COOKIES') ?: '';
+    $cookie_arg = $cookies ? ' --cookies ' . escapeshellarg($cookies) : '';
+    $cmd = 'yt-dlp --no-warnings --proxy ' . escapeshellarg($proxy) . $cookie_arg . ' ' . $args . ' 2>/dev/null';
     $output = shell_exec($cmd);
     if (!$output) return [];
 
@@ -99,16 +101,15 @@ if (isset($_GET['id'])) {
     // Route through Cloudflare WARP SOCKS5 proxy (host network, port 40000)
     // This avoids YouTube bot-detection on datacenter IPs.
     // Falls back gracefully if WARP is not running (proxy just won't connect).
-    $proxy = getenv('YTDLP_PROXY') ?: 'socks5://127.0.0.1:40000';
+    $proxy   = getenv('YTDLP_PROXY')   ?: 'socks5://127.0.0.1:40000';
+    $cookies = getenv('YTDLP_COOKIES') ?: '';
+
+    $yt_args = ['yt-dlp', '--no-warnings', '--proxy', escapeshellarg($proxy)];
+    if ($cookies) { $yt_args[] = '--cookies'; $yt_args[] = escapeshellarg($cookies); }
+    array_push($yt_args, '-f', 'bestaudio', '-o', '-', '--quiet', escapeshellarg($url));
 
     $cmd = implode(' ', [
-        'yt-dlp',
-        '--no-warnings',
-        '--proxy', escapeshellarg($proxy),
-        '-f', 'bestaudio',
-        '-o', '-',
-        '--quiet',
-        escapeshellarg($url),
+        implode(' ', $yt_args),
         '|',
         'ffmpeg',
         '-hide_banner',
