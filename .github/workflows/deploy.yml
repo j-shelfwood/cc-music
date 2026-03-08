@@ -8,13 +8,16 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
       - name: Deploy to VPS
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: influx.shelfwood.co
-          username: root
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: |
+        run: |
+          ssh -i ~/.ssh/deploy_key ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
             set -e
 
             # Clone repo on first deploy, pull on subsequent
@@ -26,8 +29,21 @@ jobs:
 
             cd /opt/cc-music
 
-            # Rebuild image and restart container
-            docker compose build --no-cache
-            docker compose up -d
+            # Rebuild and restart (--no-cache ensures yt-dlp stays current)
+            docker build -t cc-music . --quiet
+            docker rm -f cc-music 2>/dev/null || true
+            docker run -d \
+              --name cc-music \
+              --restart unless-stopped \
+              -p 127.0.0.1:3001:8080 \
+              cc-music
 
-            echo "Deploy complete"
+            sleep 2
+            STATUS=\$(docker inspect --format='{{.State.Status}}' cc-music 2>/dev/null || echo 'missing')
+            if [ \"\$STATUS\" != 'running' ]; then
+              echo 'ERROR: container not running'
+              docker logs cc-music 2>&1 | tail -20
+              exit 1
+            fi
+            echo 'Deploy complete: https://cc-music.shelfwood.co'
+          "
