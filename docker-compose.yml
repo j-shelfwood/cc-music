@@ -1,0 +1,7 @@
+services:
+  cc-music:
+    build: .
+    container_name: cc-music
+    ports:
+      - "127.0.0.1:3001:8080"
+    restart: unless-stopped
