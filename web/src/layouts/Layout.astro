@@ -1,0 +1,63 @@
+---
+import '@/styles/site.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = 'cc-music — Stream YouTube music in ComputerCraft',
+  description = 'Self-hosted streaming music for CC:Tweaked. Search YouTube, stream audio in-game, queue and shuffle tracks — no mods beyond CC:Tweaked required.',
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content={description} />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+  </head>
+  <body class="min-h-screen flex flex-col">
+    <!-- Top navigation bar -->
+    <nav class="mc-panel-raised border-b-2 border-mc-cobble sticky top-0 z-50">
+      <div class="max-w-5xl mx-auto px-4 flex items-center gap-1 h-14">
+        <a href="/" class="font-mc text-mc-diamond text-base glow-diamond mr-6 shrink-0">
+          ♪ CC-MUSIC
+        </a>
+        <a href="#install" class="font-mc text-sm px-3 py-2 text-mc-muted hover:text-mc-white hover:bg-mc-stone/40 transition-colors">Install</a>
+        <a href="#features" class="font-mc text-sm px-3 py-2 text-mc-muted hover:text-mc-white hover:bg-mc-stone/40 transition-colors">Features</a>
+        <a href="#self-host" class="font-mc text-sm px-3 py-2 text-mc-muted hover:text-mc-white hover:bg-mc-stone/40 transition-colors">Self-Host</a>
+        <div class="ml-auto flex items-center gap-3">
+          <a
+            href="https://github.com/j-shelfwood/cc-music"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="font-mc text-sm px-3 py-1.5 border border-mc-cobble text-mc-muted hover:text-mc-white hover:border-mc-stone transition-colors"
+          >
+            GitHub
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main content -->
+    <main class="flex-1 w-full">
+      <slot />
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t-2 border-mc-cobble px-4 py-4 mt-12">
+      <div class="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+        <span class="font-mc text-sm text-mc-muted">♪ CC-MUSIC · MIT LICENSE</span>
+        <span class="font-mc text-xs text-mc-stone">
+          Inspired by <a href="https://github.com/terreng/computercraft-streaming-music" class="text-mc-muted hover:text-mc-white transition-colors" target="_blank" rel="noopener noreferrer">computercraft-streaming-music</a> by terreng
+        </span>
+      </div>
+    </footer>
+  </body>
+</html>

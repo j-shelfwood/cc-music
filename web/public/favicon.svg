@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" fill="#0d0d14"/>
+  <!-- Lightning bolt: top-right to bottom-left, pixelated MC style -->
+  <polygon
+    points="18,2 10,17 15,17 14,30 22,15 17,15"
+    fill="#f5c542"
+  />
+</svg>

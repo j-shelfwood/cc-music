@@ -1,0 +1,14 @@
+/* Tailwind V4 */
+@import "tailwindcss";
+
+/* Theme (MC colour palette, fonts, default values) */
+@import "./theme.css";
+
+/* Base (Sets default values for elements) */
+@import "./base.css";
+
+/* Utilities (Pixel borders, glows, etc.) */
+@import "./utilities.css";
+
+/* Components */
+@import "./components/mc-panel.css";

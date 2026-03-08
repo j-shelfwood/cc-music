@@ -1,7 +1,7 @@
 -- cc-music v3
 -- Self-hosted ComputerCraft streaming music
 -- https://github.com/j-shelfwood/cc-music
-local api_base_url = "https://cc-music.shelfwood.co/"
+local api_base_url = "https://cc-music.shelfwood.co/api/"
 local version = "3.0"
 
 -- ─── Peripheral discovery ──────────────────────────────────────────────────────

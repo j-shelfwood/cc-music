@@ -1,0 +1,316 @@
+---
+import Layout from '@/layouts/Layout.astro';
+---
+
+<Layout>
+  <!-- Hero -->
+  <section class="max-w-5xl mx-auto px-4 pt-16 pb-12 text-center">
+    <div class="inline-block font-mc text-6xl text-mc-diamond glow-diamond mb-4">♪</div>
+    <h1 class="font-mc text-4xl text-mc-white mb-3">cc-music</h1>
+    <p class="font-mc text-mc-muted text-sm max-w-xl mx-auto leading-relaxed mb-8">
+      Self-hosted YouTube music streaming for CC:Tweaked.<br/>
+      No API keys. No rate limits. No mods beyond CC:Tweaked.
+    </p>
+
+    <!-- Quick install badges -->
+    <div class="flex flex-wrap gap-3 justify-center">
+      <div class="mc-slot px-4 py-2 font-mc text-sm text-mc-emerald">
+        ✓ Free &amp; open source
+      </div>
+      <div class="mc-slot px-4 py-2 font-mc text-sm text-mc-diamond">
+        ✓ Self-hostable
+      </div>
+      <div class="mc-slot px-4 py-2 font-mc text-sm text-mc-gold">
+        ✓ Public instance available
+      </div>
+    </div>
+  </section>
+
+  <!-- Install section -->
+  <section id="install" class="max-w-5xl mx-auto px-4 pb-16">
+    <div class="grid md:grid-cols-2 gap-6">
+
+      <!-- MPM install (primary) -->
+      <div class="mc-panel">
+        <div class="mc-header mb-4">Quick Install via MPM</div>
+        <p class="font-mc text-xs text-mc-muted mb-4 leading-relaxed">
+          MPM is a package manager for CC:Tweaked. If you don't have it yet, install it first:
+        </p>
+
+        <div class="mc-slot p-3 mb-3">
+          <div class="font-mc text-xs text-mc-stone mb-1">-- Install MPM</div>
+          <div class="font-mc text-sm text-mc-white">wget run https://shelfwood-mpm.netlify.app/install.lua</div>
+        </div>
+
+        <p class="font-mc text-xs text-mc-muted mb-3">Then install and run cc-music:</p>
+
+        <div class="mc-slot p-3 mb-2">
+          <div class="font-mc text-sm text-mc-emerald">mpm install cc-music</div>
+        </div>
+        <div class="mc-slot p-3">
+          <div class="font-mc text-sm text-mc-emerald">mpm run cc-music</div>
+        </div>
+
+        <p class="font-mc text-xs text-mc-stone mt-4">
+          cc-music is also featured in the <span class="text-mc-muted">mpm intro</span> tutorial.
+        </p>
+      </div>
+
+      <!-- Manual install -->
+      <div class="mc-panel">
+        <div class="mc-header mb-4">Manual Install</div>
+        <p class="font-mc text-xs text-mc-muted mb-4 leading-relaxed">
+          Download music.lua directly to your ComputerCraft computer:
+        </p>
+
+        <div class="mc-slot p-3 mb-4">
+          <div class="font-mc text-xs text-mc-stone mb-1">-- In your CC terminal</div>
+          <div class="font-mc text-sm text-mc-white break-all">wget https://raw.githubusercontent.com/j-shelfwood/cc-music/main/music.lua music</div>
+        </div>
+
+        <div class="mc-slot p-3 mb-4">
+          <div class="font-mc text-sm text-mc-emerald">music</div>
+        </div>
+
+        <p class="font-mc text-xs text-mc-muted leading-relaxed">
+          Connects to the public backend at
+          <span class="text-mc-diamond">cc-music.shelfwood.co</span> by default.
+          No setup required.
+        </p>
+      </div>
+    </div>
+
+    <!-- Requirements -->
+    <div class="mc-panel mt-6">
+      <div class="mc-header mb-4">Requirements</div>
+      <div class="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="mc-slot p-3 text-center">
+          <div class="font-mc text-mc-diamond text-lg mb-1">⚡</div>
+          <div class="font-mc text-xs text-mc-white mb-1">CC:Tweaked</div>
+          <div class="font-mc text-xs text-mc-muted">v1.100.0+</div>
+        </div>
+        <div class="mc-slot p-3 text-center">
+          <div class="font-mc text-mc-gold text-lg mb-1">★</div>
+          <div class="font-mc text-xs text-mc-white mb-1">Advanced Computer</div>
+          <div class="font-mc text-xs text-mc-muted">For colour UI</div>
+        </div>
+        <div class="mc-slot p-3 text-center">
+          <div class="font-mc text-mc-emerald text-lg mb-1">♪</div>
+          <div class="font-mc text-xs text-mc-white mb-1">Speaker</div>
+          <div class="font-mc text-xs text-mc-muted">Direct or wired network</div>
+        </div>
+        <div class="mc-slot p-3 text-center">
+          <div class="font-mc text-mc-amethyst text-lg mb-1">▪</div>
+          <div class="font-mc text-xs text-mc-white mb-1">Monitor</div>
+          <div class="font-mc text-xs text-mc-muted">Optional — now-playing display</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features section -->
+  <section id="features" class="max-w-5xl mx-auto px-4 pb-16">
+    <h2 class="font-mc text-xl text-mc-white mb-6 border-b-2 border-mc-cobble pb-2">Features</h2>
+
+    <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+
+      <div class="mc-panel">
+        <div class="font-mc text-mc-diamond text-2xl mb-2">⟳</div>
+        <div class="font-mc text-sm text-mc-white mb-2">Shuffle &amp; Queue</div>
+        <div class="font-mc text-xs text-mc-muted leading-relaxed">
+          Fisher-Yates shuffle for queue. Per-item remove, clear queue, and scroll.
+          Loop queue or loop single song.
+        </div>
+      </div>
+
+      <div class="mc-panel">
+        <div class="font-mc text-mc-emerald text-2xl mb-2">▶</div>
+        <div class="font-mc text-sm text-mc-white mb-2">Live Volume Control</div>
+        <div class="font-mc text-xs text-mc-muted leading-relaxed">
+          Volume changes apply on the next audio chunk (~0.34s).
+          No track restart required.
+        </div>
+      </div>
+
+      <div class="mc-panel">
+        <div class="font-mc text-mc-gold text-2xl mb-2">⚡</div>
+        <div class="font-mc text-sm text-mc-white mb-2">Wired Speaker Networks</div>
+        <div class="font-mc text-xs text-mc-muted leading-relaxed">
+          Automatically discovers speakers across wired modem networks —
+          not just directly attached.
+        </div>
+      </div>
+
+      <div class="mc-panel">
+        <div class="font-mc text-mc-amethyst text-2xl mb-2">▪</div>
+        <div class="font-mc text-sm text-mc-white mb-2">Monitor Display</div>
+        <div class="font-mc text-xs text-mc-muted leading-relaxed">
+          Auto-scaling now-playing view on any connected Advanced Monitor.
+          Shows track, artist, queue, and volume.
+        </div>
+      </div>
+
+      <div class="mc-panel">
+        <div class="font-mc text-mc-copper text-2xl mb-2">⊞</div>
+        <div class="font-mc text-sm text-mc-white mb-2">Search Pagination</div>
+        <div class="font-mc text-xs text-mc-muted leading-relaxed">
+          10 search results with 5-per-page pagination and scroll wheel navigation.
+          Paste YouTube URLs or playlist links directly.
+        </div>
+      </div>
+
+      <div class="mc-panel">
+        <div class="font-mc text-mc-lapis text-2xl mb-2">∞</div>
+        <div class="font-mc text-sm text-mc-white mb-2">No Time Limits</div>
+        <div class="font-mc text-xs text-mc-muted leading-relaxed">
+          PHP backend with <code class="text-mc-diamond">set_time_limit(0)</code>.
+          Stream albums, mixes, and anything — no Firebase 60s cutoff.
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls table -->
+    <div class="mc-panel">
+      <div class="mc-header mb-4">Controls</div>
+      <div class="overflow-x-auto">
+        <table class="w-full font-mc text-xs">
+          <thead>
+            <tr class="border-b border-mc-cobble">
+              <th class="text-left text-mc-muted pb-2 pr-6">Control</th>
+              <th class="text-left text-mc-muted pb-2">Action</th>
+            </tr>
+          </thead>
+          <tbody class="text-mc-white">
+            <tr class="border-b border-mc-cobble/40">
+              <td class="py-2 pr-6 text-mc-diamond">Click result → Play now</td>
+              <td class="py-2 text-mc-muted">Stop current, play immediately</td>
+            </tr>
+            <tr class="border-b border-mc-cobble/40">
+              <td class="py-2 pr-6 text-mc-diamond">Click result → Play next</td>
+              <td class="py-2 text-mc-muted">Insert at front of queue</td>
+            </tr>
+            <tr class="border-b border-mc-cobble/40">
+              <td class="py-2 pr-6 text-mc-diamond">Click result → + Queue</td>
+              <td class="py-2 text-mc-muted">Append to queue</td>
+            </tr>
+            <tr class="border-b border-mc-cobble/40">
+              <td class="py-2 pr-6 text-mc-diamond">Stop / Play button</td>
+              <td class="py-2 text-mc-muted">Pause and resume</td>
+            </tr>
+            <tr class="border-b border-mc-cobble/40">
+              <td class="py-2 pr-6 text-mc-diamond">Loop button</td>
+              <td class="py-2 text-mc-muted">Cycle: Off → Loop Queue → Loop Song</td>
+            </tr>
+            <tr class="border-b border-mc-cobble/40">
+              <td class="py-2 pr-6 text-mc-diamond">Shuf button</td>
+              <td class="py-2 text-mc-muted">Toggle shuffle (also shuffles existing queue)</td>
+            </tr>
+            <tr class="border-b border-mc-cobble/40">
+              <td class="py-2 pr-6 text-mc-diamond">Volume bar</td>
+              <td class="py-2 text-mc-muted">Click or drag to adjust — applies live</td>
+            </tr>
+            <tr class="border-b border-mc-cobble/40">
+              <td class="py-2 pr-6 text-mc-diamond">[x] next to queue item</td>
+              <td class="py-2 text-mc-muted">Remove that track</td>
+            </tr>
+            <tr>
+              <td class="py-2 pr-6 text-mc-diamond">Paste YouTube URL</td>
+              <td class="py-2 text-mc-muted">Resolves single video or entire playlist</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Self-host section -->
+  <section id="self-host" class="max-w-5xl mx-auto px-4 pb-16">
+    <h2 class="font-mc text-xl text-mc-white mb-6 border-b-2 border-mc-cobble pb-2">Self-Host the Backend</h2>
+
+    <div class="grid md:grid-cols-2 gap-6 mb-6">
+      <!-- Docker -->
+      <div class="mc-panel">
+        <div class="mc-header mb-4">Option A — Docker (Recommended)</div>
+        <div class="mc-slot p-3 mb-3">
+          <div class="font-mc text-xs text-mc-stone mb-2">bash</div>
+          <div class="font-mc text-sm text-mc-white leading-7">
+            git clone https://github.com/j-shelfwood/cc-music.git<br/>
+            cd cc-music<br/>
+            docker compose up -d
+          </div>
+        </div>
+        <p class="font-mc text-xs text-mc-muted leading-relaxed">
+          Then point a reverse proxy (Caddy, Nginx) at <span class="text-mc-diamond">127.0.0.1:3001</span>.
+        </p>
+      </div>
+
+      <!-- Bare PHP -->
+      <div class="mc-panel">
+        <div class="mc-header mb-4">Option B — Bare PHP</div>
+        <p class="font-mc text-xs text-mc-muted mb-3">Requirements: PHP 8.x, yt-dlp, ffmpeg</p>
+        <div class="mc-slot p-3 mb-3">
+          <div class="font-mc text-xs text-mc-stone mb-2">bash</div>
+          <div class="font-mc text-sm text-mc-white leading-7">
+            apt install php ffmpeg<br/>
+            wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \<br/>
+            &nbsp;&nbsp;&nbsp;&nbsp; -O /usr/local/bin/yt-dlp<br/>
+            chmod +x /usr/local/bin/yt-dlp
+          </div>
+        </div>
+        <p class="font-mc text-xs text-mc-muted leading-relaxed">
+          Copy <span class="text-mc-diamond">server/index.php</span> to your web root.
+          Set <span class="text-mc-diamond">fastcgi_read_timeout 86400</span> in Nginx.
+        </p>
+      </div>
+    </div>
+
+    <!-- Point music.lua at your server -->
+    <div class="mc-panel">
+      <div class="mc-header mb-4">Point music.lua at Your Server</div>
+      <p class="font-mc text-xs text-mc-muted mb-3">Edit line 4 of music.lua:</p>
+      <div class="mc-slot p-3">
+        <div class="font-mc text-xs text-mc-stone mb-1">lua</div>
+        <div class="font-mc text-sm text-mc-white">local api_base_url = "https://your-domain.com/"</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Troubleshooting -->
+  <section class="max-w-5xl mx-auto px-4 pb-16">
+    <h2 class="font-mc text-xl text-mc-white mb-6 border-b-2 border-mc-cobble pb-2">Troubleshooting</h2>
+    <div class="mc-panel">
+      <div class="overflow-x-auto">
+        <table class="w-full font-mc text-xs">
+          <thead>
+            <tr class="border-b border-mc-cobble">
+              <th class="text-left text-mc-muted pb-2 pr-6">Symptom</th>
+              <th class="text-left text-mc-muted pb-2">Fix</th>
+            </tr>
+          </thead>
+          <tbody class="text-mc-white">
+            <tr class="border-b border-mc-cobble/40">
+              <td class="py-2 pr-6 text-mc-redstone">"No speakers found"</td>
+              <td class="py-2 text-mc-muted">Connect a speaker directly or via wired modem; restart Minecraft</td>
+            </tr>
+            <tr class="border-b border-mc-cobble/40">
+              <td class="py-2 pr-6 text-mc-redstone">"Network error"</td>
+              <td class="py-2 text-mc-muted">Check yt-dlp and ffmpeg are in PATH; run yt-dlp -U to update</td>
+            </tr>
+            <tr class="border-b border-mc-cobble/40">
+              <td class="py-2 pr-6 text-mc-redstone">Audio stops mid-track</td>
+              <td class="py-2 text-mc-muted">Set fastcgi_read_timeout to 0 or 86400 in Nginx config</td>
+            </tr>
+            <tr class="border-b border-mc-cobble/40">
+              <td class="py-2 pr-6 text-mc-redstone">Search returns empty</td>
+              <td class="py-2 text-mc-muted">Run yt-dlp -U on the server; YouTube occasionally breaks yt-dlp</td>
+            </tr>
+            <tr>
+              <td class="py-2 pr-6 text-mc-redstone">Monitor shows nothing</td>
+              <td class="py-2 text-mc-muted">Must be an Advanced Monitor; plain monitors don't support colour</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</Layout>

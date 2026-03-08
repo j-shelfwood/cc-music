@@ -1,0 +1,74 @@
+@layer utilities {
+  /* ── Pixel border (Minecraft inventory-slot style) ───────────────────── */
+  .pixel-border {
+    box-shadow:
+      inset -2px -2px 0 var(--color-mc-shadow),
+      inset 2px 2px 0 var(--color-mc-highlight),
+      0 0 0 2px var(--color-mc-cobble);
+  }
+
+  .pixel-border-inset {
+    box-shadow:
+      inset -2px -2px 0 var(--color-mc-highlight),
+      inset 2px 2px 0 var(--color-mc-shadow),
+      0 0 0 2px var(--color-mc-cobble);
+  }
+
+  /* Raised border (like inventory slot hover) */
+  .pixel-border-raised {
+    box-shadow:
+      inset -2px -2px 0 var(--color-mc-shadow),
+      inset 2px 2px 0 rgba(255, 255, 255, 0.15),
+      0 0 0 2px var(--color-mc-cobble);
+  }
+
+  /* ── Glow effects ────────────────────────────────────────────────────── */
+  .glow-emerald {
+    text-shadow: 0 0 8px var(--color-mc-emerald), 0 0 20px rgba(78, 216, 160, 0.3);
+  }
+
+  .glow-gold {
+    text-shadow: 0 0 8px var(--color-mc-gold), 0 0 20px rgba(245, 197, 66, 0.3);
+  }
+
+  .glow-diamond {
+    text-shadow: 0 0 8px var(--color-mc-diamond), 0 0 20px rgba(92, 232, 240, 0.3);
+  }
+
+  .glow-redstone {
+    text-shadow: 0 0 8px var(--color-mc-redstone), 0 0 20px rgba(232, 64, 64, 0.3);
+  }
+
+  /* ── Scanline overlay (CRT monitor effect) ───────────────────────────── */
+  .scanlines::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.04) 2px,
+      rgba(0, 0, 0, 0.04) 4px
+    );
+  }
+
+  /* ── MC Font utility ─────────────────────────────────────────────────── */
+  .font-mc {
+    font-family: var(--font-mc);
+  }
+
+  /* ── Status colours ──────────────────────────────────────────────────── */
+  .text-active  { color: var(--color-mc-emerald); }
+  .text-idle    { color: var(--color-mc-muted); }
+  .text-error   { color: var(--color-mc-redstone); }
+  .text-energy  { color: var(--color-mc-gold); }
+  .text-ae      { color: var(--color-mc-diamond); }
+  .text-machine { color: var(--color-mc-copper); }
+  .text-craft   { color: var(--color-mc-amethyst); }
+
+  .bg-active  { background-color: var(--color-mc-emerald); }
+  .bg-idle    { background-color: var(--color-mc-stone); }
+  .bg-error   { background-color: var(--color-mc-redstone); }
+}

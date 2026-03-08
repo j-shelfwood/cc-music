@@ -1,0 +1,67 @@
+@layer components {
+  /* Base MC panel — inventory-slot style dark panel */
+  .mc-panel {
+    position: relative;
+    background-color: var(--color-mc-deepslate);
+    box-shadow:
+      inset -2px -2px 0 var(--color-mc-shadow),
+      inset 2px 2px 0 var(--color-mc-highlight),
+      0 0 0 2px var(--color-mc-cobble);
+    padding: 1rem;
+  }
+
+  /* Elevated panel (slightly lighter) */
+  .mc-panel-raised {
+    background-color: var(--color-mc-netherite);
+    box-shadow:
+      inset -2px -2px 0 var(--color-mc-shadow),
+      inset 2px 2px 0 rgba(255, 255, 255, 0.08),
+      0 0 0 2px var(--color-mc-cobble);
+    padding: 1rem;
+  }
+
+  /* Inset slot (like a container input slot) */
+  .mc-slot {
+    background-color: var(--color-mc-shadow);
+    box-shadow:
+      inset -2px -2px 0 var(--color-mc-highlight),
+      inset 2px 2px 0 var(--color-mc-shadow),
+      0 0 0 2px var(--color-mc-cobble);
+  }
+
+  /* Section header bar */
+  .mc-header {
+    background-color: var(--color-mc-stone);
+    border-bottom: 2px solid var(--color-mc-cobble);
+    padding: 0.375rem 1rem;
+    font-family: var(--font-mc);
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-mc-white);
+  }
+
+  /* Progress bar track */
+  .mc-progress-track {
+    background-color: var(--color-mc-shadow);
+    box-shadow:
+      inset 1px 1px 0 rgba(0, 0, 0, 0.5),
+      inset -1px -1px 0 rgba(255, 255, 255, 0.05);
+    height: 14px;
+    overflow: hidden;
+  }
+
+  /* Progress bar fill */
+  .mc-progress-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+    position: relative;
+  }
+
+  .mc-progress-fill::after {
+    content: '';
+    position: absolute;
+    inset: 0 0 50% 0;
+    background: rgba(255, 255, 255, 0.2);
+  }
+}

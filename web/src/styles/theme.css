@@ -1,0 +1,41 @@
+@theme {
+  /* ── Minecraft Colour Palette ────────────────────────────────────────── */
+
+  /* Backgrounds */
+  --color-mc-obsidian: #0d0d14;       /* page background — deep obsidian */
+  --color-mc-deepslate: #1e1e28;      /* panel background — deepslate */
+  --color-mc-netherite: #252530;      /* elevated panel */
+  --color-mc-stone: #4a4a54;          /* muted surfaces */
+  --color-mc-cobble: #6b6b77;         /* borders / separators */
+
+  /* Highlights */
+  --color-mc-shadow: #0a0a10;         /* inset shadow */
+  --color-mc-highlight: #3a3a48;      /* inset highlight */
+
+  /* Accents */
+  --color-mc-emerald: #4ed8a0;        /* active / online / success */
+  --color-mc-redstone: #e84040;       /* error / offline / danger */
+  --color-mc-gold: #f5c542;           /* energy / FE */
+  --color-mc-diamond: #5ce8f0;        /* AE2 / storage — cyan */
+  --color-mc-lapis: #5b8fd4;          /* info / AE2 blue */
+  --color-mc-amethyst: #b47ed4;       /* crafting / purple */
+  --color-mc-copper: #e8844a;         /* machines / orange */
+  --color-mc-white: #e0e0e8;          /* primary text */
+  --color-mc-muted: #8888a0;          /* secondary text */
+
+  /* Semantic aliases for Tailwind utilities */
+  --color-background: var(--color-mc-obsidian);
+  --color-foreground: var(--color-mc-white);
+  --color-muted: var(--color-mc-stone);
+  --color-muted-foreground: var(--color-mc-muted);
+  --color-border: var(--color-mc-cobble);
+  --color-accent: var(--color-mc-diamond);
+
+  /* ── Typography ──────────────────────────────────────────────────────── */
+  --font-mc: 'Monocraft', 'Courier New', monospace;
+  --font-mono: 'Monocraft', 'Courier New', monospace;
+  --font-sans: ui-monospace, 'Courier New', monospace;
+
+  /* ── Borders ─────────────────────────────────────────────────────────── */
+  --radius: 0px;   /* Minecraft = no border radius */
+}

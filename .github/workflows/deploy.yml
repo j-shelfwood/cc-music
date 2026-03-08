@@ -5,9 +5,39 @@ on:
     branches: [main]
 
 jobs:
-  deploy:
+  build-web:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install web dependencies
+        run: bun install
+        working-directory: web
+
+      - name: Build landing page
+        run: bun x astro build
+        working-directory: web
+
+      - name: Upload dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist/
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-web
+    steps:
+      - name: Download dist
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: web-dist/
+
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -15,13 +45,18 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy to VPS
+      - name: Upload landing page
+        run: |
+          ssh -i ~/.ssh/deploy_key ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "mkdir -p /opt/cc-music/web/dist"
+          scp -i ~/.ssh/deploy_key -r web-dist/. ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/cc-music/web/dist/
+
+      - name: Deploy API to VPS
         run: |
           ssh -i ~/.ssh/deploy_key ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
             set -e
 
             # Clone repo on first deploy, pull on subsequent
-            if [ ! -d /opt/cc-music ]; then
+            if [ ! -d /opt/cc-music/.git ]; then
               git clone https://github.com/j-shelfwood/cc-music.git /opt/cc-music
             else
               git -C /opt/cc-music pull

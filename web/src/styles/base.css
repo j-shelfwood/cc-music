@@ -1,0 +1,52 @@
+@font-face {
+  font-family: 'Monocraft';
+  src: url('/fonts/Monocraft.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    image-rendering: pixelated;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-mc);
+    letter-spacing: 0.02em;
+    text-rendering: optimizeSpeed;
+  }
+
+  /* Minecraft-style scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-mc-deepslate);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-mc-cobble);
+    border: 2px solid var(--color-mc-deepslate);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-mc-stone);
+  }
+}
