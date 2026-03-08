@@ -60,8 +60,7 @@ local is_error          = false
 local player_handle     = nil
 local chunk_start       = nil
 local chunk_size        = nil
-local dfpwm             = require and require("cc.audio.dfpwm") or dofile("/rom/modules/main/cc/audio/dfpwm.lua")
-local decoder           = dfpwm.make_decoder()
+local decoder           = require("cc.audio.dfpwm").make_decoder()
 local needs_next_chunk  = 0
 local audio_buffer      = nil
 
