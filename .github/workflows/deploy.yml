@@ -72,6 +72,8 @@ jobs:
               --restart unless-stopped \
               --network host \
               -e YTDLP_PROXY=socks5://127.0.0.1:40000 \
+              -e YTDLP_COOKIES=/cookies.txt \
+              -v /opt/cc-music/cookies.txt:/cookies.txt \
               cc-music
 
             sleep 2
