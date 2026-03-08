@@ -144,6 +144,13 @@ if (isset($_GET['id'])) {
     $has_more = !feof($handle);
     pclose($handle);
 
+    // If yt-dlp failed (bot-check etc.) we get 0 bytes — return 500 so the client shows an error
+    if ($sent === 0) {
+        http_response_code(500);
+        echo 'yt-dlp failed (bot check or unavailable video)';
+        exit;
+    }
+
     header('Content-Type: application/octet-stream');
     header('Cache-Control: no-cache');
     header('X-Accel-Buffering: no');
