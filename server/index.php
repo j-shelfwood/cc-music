@@ -43,7 +43,8 @@ function to_hms(int $seconds): string {
 
 // Run yt-dlp and parse its newline-delimited JSON output
 function ytdlp_json(string $args): array {
-    $cmd = 'yt-dlp --no-warnings ' . $args . ' 2>/dev/null';
+    $proxy = getenv('YTDLP_PROXY') ?: 'socks5://127.0.0.1:40000';
+    $cmd = 'yt-dlp --no-warnings --proxy ' . escapeshellarg($proxy) . ' ' . $args . ' 2>/dev/null';
     $output = shell_exec($cmd);
     if (!$output) return [];
 
@@ -95,9 +96,15 @@ if (isset($_GET['id'])) {
     $url    = 'https://www.youtube.com/watch?v=' . $id;
 
     // Pipe: yt-dlp → ffmpeg → DFPWM stdout
+    // Route through Cloudflare WARP SOCKS5 proxy (host network, port 40000)
+    // This avoids YouTube bot-detection on datacenter IPs.
+    // Falls back gracefully if WARP is not running (proxy just won't connect).
+    $proxy = getenv('YTDLP_PROXY') ?: 'socks5://127.0.0.1:40000';
+
     $cmd = implode(' ', [
         'yt-dlp',
         '--no-warnings',
+        '--proxy', escapeshellarg($proxy),
         '-f', 'bestaudio',
         '-o', '-',
         '--quiet',

@@ -70,7 +70,9 @@ jobs:
             docker run -d \
               --name cc-music \
               --restart unless-stopped \
+              --add-host=host.docker.internal:host-gateway \
               -p 127.0.0.1:3001:8080 \
+              -e YTDLP_PROXY=socks5://host.docker.internal:40000 \
               cc-music
 
             sleep 2
