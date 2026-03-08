@@ -63,6 +63,8 @@ local chunk_size        = nil
 local decoder           = require("cc.audio.dfpwm").make_decoder()
 local needs_next_chunk  = 0
 local audio_buffer      = nil
+local audio_offset      = 0   -- byte offset for segmented download
+local audio_has_more    = false  -- server signalled more segments follow
 
 -- Search
 local last_search       = nil
@@ -747,17 +749,26 @@ end
 
 -- ─── Audio loop ────────────────────────────────────────────────────────────────
 
+local function requestSegment(id, offset)
+    local url = api_base_url .. "?v=" .. version
+                .. "&id=" .. textutils.urlEncode(id)
+                .. "&offset=" .. offset
+    last_download_url = url
+    http.request({url = url, binary = true})
+end
+
 local function audioLoop()
     while true do
         if playing and now_playing then
             local this_id = now_playing.id
 
             if playing_id ~= this_id then
-                playing_id      = this_id
-                last_download_url = api_base_url .. "?v=" .. version .. "&id=" .. textutils.urlEncode(playing_id)
-                playing_status  = 0
+                playing_id       = this_id
+                audio_offset     = 0
+                audio_has_more   = false
+                playing_status   = 0
                 needs_next_chunk = 1
-                http.request({url = last_download_url, binary = true})
+                requestSegment(playing_id, 0)
                 is_loading = true
                 signalRedraw()
                 queueEvent("audio_update")
@@ -767,23 +778,40 @@ local function audioLoop()
                     local chunk = player_handle.read(chunk_size)
 
                     if not chunk then
-                        -- Track ended
+                        -- Segment exhausted
                         player_handle.close()
                         needs_next_chunk = 0
 
+                        if audio_has_more and playing and playing_id == this_id then
+                            -- More segments: fetch next, stay on same track
+                            playing_status = 0
+                            needs_next_chunk = 1
+                            chunk_start = nil
+                            chunk_size  = nil
+                            requestSegment(playing_id, audio_offset)
+                            is_loading = true
+                            signalRedraw()
+                            break
+                        end
+
+                        -- Track truly ended
                         if looping == 2 or (looping == 1 and #queue == 0) then
                             playing_id = nil  -- replay same song
+                            audio_offset = 0
                         elseif looping == 1 and #queue > 0 then
                             table.insert(queue, now_playing)
                             now_playing = table.remove(queue, 1)
                             playing_id  = nil
+                            audio_offset = 0
                         elseif #queue > 0 then
                             now_playing = table.remove(queue, 1)
                             playing_id  = nil
+                            audio_offset = 0
                         else
                             now_playing = nil
                             playing     = false
                             playing_id  = nil
+                            audio_offset = 0
                             is_loading  = false
                             is_error    = false
                         end
@@ -865,10 +893,13 @@ local function httpLoop()
                 end
 
                 if url == last_download_url then
-                    is_loading   = false
-                    player_handle = handle
-                    chunk_start  = handle.read(4)
-                    chunk_size   = 16 * 1024 - 4
+                    local headers = handle.getResponseHeaders()
+                    audio_has_more = (headers and headers["X-More"] == "1")
+                    audio_offset   = tonumber(headers and headers["X-Next-Offset"]) or audio_offset
+                    is_loading     = false
+                    player_handle  = handle
+                    chunk_start    = handle.read(4)
+                    chunk_size     = 16 * 1024 - 4
                     playing_status = 1
                     signalRedraw()
                     queueEvent("audio_update")

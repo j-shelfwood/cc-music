@@ -71,7 +71,17 @@ function build_item(array $entry): array {
     ];
 }
 
-// ─── Route: ?id=<video_id> ── Stream audio as DFPWM ───────────────────────────
+// ─── Route: ?id=<video_id>&offset=<bytes> ── Stream audio as DFPWM ─────────────
+//
+// CC:Tweaked buffers the entire HTTP response before firing http_success,
+// so we cannot truly stream. Instead we serve fixed-size segments:
+// each request returns SEGMENT_BYTES of DFPWM audio starting at `offset`,
+// then closes. The client re-requests with the new offset until X-More is absent.
+//
+// SEGMENT_BYTES = 448KB ≈ 74 seconds of audio at 48kHz DFPWM (6KB/s).
+// Well under CC's default 16MB response limit.
+
+define('SEGMENT_BYTES', 458752); // 448 * 1024
 
 if (isset($_GET['id'])) {
     $id = sanitize_video_id(trim($_GET['id']));
@@ -81,9 +91,10 @@ if (isset($_GET['id'])) {
         exit;
     }
 
-    $url = 'https://www.youtube.com/watch?v=' . $id;
+    $offset = max(0, (int)($_GET['offset'] ?? 0));
+    $url    = 'https://www.youtube.com/watch?v=' . $id;
 
-    // Pipe: yt-dlp (best audio, stdout) → ffmpeg (dfpwm 48kHz mono, stdout)
+    // Pipe: yt-dlp → ffmpeg → DFPWM stdout
     $cmd = implode(' ', [
         'yt-dlp',
         '--no-warnings',
@@ -102,10 +113,6 @@ if (isset($_GET['id'])) {
         'pipe:1',
     ]);
 
-    header('Content-Type: application/octet-stream');
-    header('Cache-Control: no-cache');
-    header('X-Accel-Buffering: no'); // Disable nginx buffering if present
-
     $handle = popen($cmd, 'r');
     if (!$handle) {
         http_response_code(500);
@@ -113,16 +120,39 @@ if (isset($_GET['id'])) {
         exit;
     }
 
-    // Stream in 16KB chunks — matches the CC:Tweaked Lua client chunk size
-    while (!feof($handle)) {
-        $chunk = fread($handle, 16384);
-        if ($chunk !== false) {
-            echo $chunk;
-            flush();
-        }
+    // Skip first $offset bytes (re-encode from start — stateless server)
+    $skipped = 0;
+    while ($skipped < $offset && !feof($handle)) {
+        $want  = min(65536, $offset - $skipped);
+        $chunk = fread($handle, $want);
+        if ($chunk === false) break;
+        $skipped += strlen($chunk);
     }
 
+    // Read up to SEGMENT_BYTES
+    $sent = 0;
+    $body = '';
+    while ($sent < SEGMENT_BYTES && !feof($handle)) {
+        $want  = min(16384, SEGMENT_BYTES - $sent);
+        $chunk = fread($handle, $want);
+        if ($chunk === false) break;
+        $body .= $chunk;
+        $sent += strlen($chunk);
+    }
+
+    // Peek: is there more data after this segment?
+    $has_more = !feof($handle);
     pclose($handle);
+
+    header('Content-Type: application/octet-stream');
+    header('Cache-Control: no-cache');
+    header('X-Accel-Buffering: no');
+    if ($has_more) {
+        header('X-More: 1');
+        header('X-Next-Offset: ' . ($offset + $sent));
+    }
+
+    echo $body;
     exit;
 }
 
