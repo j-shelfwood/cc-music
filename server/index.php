@@ -106,7 +106,7 @@ if (isset($_GET['id'])) {
 
     $yt_args = ['yt-dlp', '--no-warnings', '--proxy', escapeshellarg($proxy)];
     if ($cookies) { $yt_args[] = '--cookies'; $yt_args[] = escapeshellarg($cookies); }
-    array_push($yt_args, '-f', 'bestaudio', '-o', '-', '--quiet', escapeshellarg($url));
+    array_push($yt_args, '-f', 'bestaudio*', '-o', '-', '--quiet', escapeshellarg($url));
 
     $cmd = implode(' ', [
         implode(' ', $yt_args),
