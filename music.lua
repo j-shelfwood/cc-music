@@ -896,4 +896,12 @@ end
 
 -- ─── Run ───────────────────────────────────────────────────────────────────────
 
+-- If launched with a URL or search term (e.g. mpm startup cc-music <url>)
+-- trigger an immediate search before the event loops start.
+-- shell.run word-splits args, so multi-word terms arrive as separate varargs.
+local startup_args = {...}
+if #startup_args > 0 then
+    doSearch(table.concat(startup_args, " "))
+end
+
 parallel.waitForAny(uiLoop, audioLoop, httpLoop, monitorLoop)
