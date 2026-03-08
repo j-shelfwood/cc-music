@@ -1,129 +1,155 @@
 # cc-music
 
-Self-hosted ComputerCraft streaming music. Fork of [computercraft-streaming-music](https://github.com/terreng/computercraft-streaming-music) — replaces Firebase + RapidAPI with a self-hosted PHP backend using `yt-dlp` and `ffmpeg`.
-
-**No API keys. No vendor timeouts. No limits.**
-
----
-
-## Requirements
-
-### VPS / Server
-- PHP 8.x with `popen`/`shell_exec` enabled
-- [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) in `$PATH`
-- [`ffmpeg`](https://ffmpeg.org/) in `$PATH`
-- Apache with `mod_rewrite` **or** Nginx
-
-### In-Game
-- [CC: Tweaked](https://tweaked.cc/) mod v1.100.0+
-- Advanced Computer + Speaker, or Advanced Noisy Pocket Computer
+**Self-hosted streaming music for ComputerCraft: Tweaked.**
+Search YouTube, stream audio in-game, queue and shuffle tracks — no mods beyond CC:Tweaked required.
 
 ---
 
-## Server Setup
+## Inspiration & Attribution
 
-### 1. Install dependencies (Ubuntu/Debian)
+cc-music is a ground-up reimplementation inspired by [computercraft-streaming-music](https://github.com/terreng/computercraft-streaming-music) by [terreng](https://github.com/terreng), which demonstrated that DFPWM streaming via HTTP is viable in CC:Tweaked and built the original Firebase + RapidAPI architecture.
 
-```bash
-apt install php ffmpeg
-pip install yt-dlp
-# or: wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp && chmod +x /usr/local/bin/yt-dlp
+**What we changed and why:**
+
+| Original | cc-music |
+|---|---|
+| Firebase Cloud Functions (60s timeout) | PHP on any VPS — unlimited stream duration |
+| RapidAPI YT-API (paid, rate-limited, key required) | `yt-dlp` — free, self-hosted, no keys |
+| Firebase deploy pipeline | One PHP file, drop anywhere |
+| 5 fixed search results | 10 results with pagination |
+| No wired modem speaker support | Discovers speakers across wired networks |
+| No monitor output | Fancy now-playing display on any attached monitor |
+| Volume change restarts track | Volume applies live on next audio chunk |
+| No shuffle | Shuffle mode for queue |
+| No queue management | Per-item remove, clear queue, scroll |
+
+---
+
+## Quick install via MPM
+
+If you have [MPM](https://github.com/Bitcraft-Creations/mpm) installed:
+
+```
+mpm install cc-music
+mpm run cc-music
 ```
 
-### 2. Deploy files
-
-Copy the contents of `server/` to your web root (e.g. `/var/www/cc-music/`):
-
+To install MPM first:
 ```
-/var/www/cc-music/
-├── index.php
-└── .htaccess   (Apache only)
+wget run https://shelfwood-mpm.netlify.app/install.lua
 ```
 
-### 3. Nginx config (if not using Apache)
+cc-music is featured in the `mpm intro` tutorial — just say yes when prompted.
 
-Add the snippet from `server/nginx.conf` inside your `server {}` block, pointing `root` at your deploy directory. Key settings:
+---
 
-```nginx
-fastcgi_read_timeout 86400;   # allow 24h streams
-fastcgi_buffering off;         # don't buffer audio — stream directly
+## Manual install
+
+Transfer `music.lua` to your ComputerCraft computer (drag and drop onto the Minecraft window, or use `wget`):
+
+```
+wget https://raw.githubusercontent.com/j-shelfwood/cc-music/main/music.lua music
 ```
 
-### 4. Update music.lua
-
-Edit line 1 of `music.lua` to point at your server:
-
-```lua
-local api_base_url = "https://your-domain.com/"
-```
-
-Then transfer `music.lua` to your ComputerCraft computer and run it:
-
+Then run it:
 ```
 music
 ```
 
+The script connects to the public backend at `https://cc-music.shelfwood.co/` by default. No setup required — just a speaker and an internet connection.
+
 ---
 
-## API
+## In-game requirements
 
-The PHP script exposes the same query interface as the original Firebase function, so the Lua client is compatible without changes (beyond the URL).
+- [CC: Tweaked](https://tweaked.cc/) v1.100.0+ (December 2021 or later)
+- **Advanced Computer** (for colour UI) — Standard Computer works but looks plain
+- **Speaker** — attached directly, or connected via wired modem network
+- **Monitor** (optional) — Advanced Monitor shows a now-playing display
 
-| Request | Response |
+---
+
+## Usage
+
+| Control | Action |
 |---|---|
-| `GET /?search=<query>` | JSON array of search results |
-| `GET /?search=<youtube-url>` | JSON array with single video or playlist |
-| `GET /?id=<video_id>` | Raw DFPWM audio stream (48kHz mono) |
-
-### Search result shape
-
-```json
-[
-  {
-    "id": "dQw4w9WgXcQ",
-    "name": "Never Gonna Give You Up",
-    "artist": "3:33 · Rick Astley"
-  }
-]
-```
-
-### Playlist shape
-
-```json
-[
-  {
-    "id": "PLxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-    "name": "My Playlist",
-    "artist": "Playlist · 12 videos · Channel Name",
-    "type": "playlist",
-    "playlist_items": [ ... ]
-  }
-]
-```
+| Click result → Play now | Stop current, play immediately |
+| Click result → Play next | Insert at front of queue |
+| Click result → + Queue | Append to queue |
+| **Stop / Play** button | Pause and resume |
+| **Skip** button | Next track in queue |
+| **Loop** button | Cycle: Off → Loop Queue → Loop Song |
+| **Shuf** button | Toggle shuffle (also shuffles existing queue) |
+| Volume bar | Click or drag to adjust — applies on next audio chunk |
+| **[x]** next to queue item | Remove that track |
+| **Clear queue** | Remove all queued tracks |
+| Scroll wheel | Scroll queue (Now Playing tab) or paginate results (Search tab) |
+| Paste a YouTube URL | Resolves single video or entire playlist |
 
 ---
 
-## Key Differences from Original
+## Public instance
 
-| | Original | cc-music |
-|---|---|---|
-| Backend | Firebase Cloud Functions | PHP on any VPS |
-| Audio source | RapidAPI (paid, rate-limited) | `yt-dlp` (free, self-hosted) |
-| Max track length | ~60s function timeout | Unlimited (`set_time_limit(0)`) |
-| API key required | Yes | No |
-| Deploy | Firebase CLI | Copy 1 PHP file |
+The backend at `https://cc-music.shelfwood.co/` is open for anyone to use. It runs on a VPS using the Docker setup in this repo. `yt-dlp` and `ffmpeg` handle all audio — no API keys, no rate limits beyond VPS bandwidth.
+
+If the public instance is down or you want your own, self-hosting takes about 5 minutes.
+
+---
+
+## Self-host the backend
+
+### Option A — Docker (recommended)
+
+```bash
+git clone https://github.com/j-shelfwood/cc-music.git
+cd cc-music
+docker compose up -d
+```
+
+Then point a reverse proxy (Caddy, Nginx) at `127.0.0.1:3001`.
+
+### Option B — Bare PHP
+
+**Requirements:** PHP 8.x, `yt-dlp` in `$PATH`, `ffmpeg` in `$PATH`
+
+```bash
+apt install php ffmpeg
+wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+     -O /usr/local/bin/yt-dlp && chmod +x /usr/local/bin/yt-dlp
+```
+
+Copy `server/index.php` (and `server/.htaccess` for Apache, or use `server/nginx.conf` snippet) to your web root.
+
+**Nginx — critical settings:**
+```nginx
+fastcgi_read_timeout 86400;  # streams can run for 40+ minutes
+fastcgi_buffering off;        # don't buffer audio in memory
+```
+
+### After setup — point music.lua at your server
+
+Edit line 4 of `music.lua`:
+```lua
+local api_base_url = "https://your-domain.com/"
+```
 
 ---
 
 ## Troubleshooting
 
-- **"Network error" in-game** — check that `yt-dlp` and `ffmpeg` are in `$PATH` for the PHP process (try `which yt-dlp` and `which ffmpeg`)
-- **Audio stops mid-track** — ensure `fastcgi_read_timeout` (Nginx) or PHP `max_execution_time` is set to 0 / very large
-- **Search returns empty** — `yt-dlp` may need updating: `yt-dlp -U`
-- **"No speakers attached"** — restart Minecraft; if using a Noisy Pocket Computer this is a known CC:Tweaked quirk
+| Symptom | Fix |
+|---|---|
+| "No speakers found" | Connect a speaker directly or via wired modem; restart Minecraft |
+| "Network error" | Check `yt-dlp` and `ffmpeg` are in PATH; run `yt-dlp -U` to update |
+| Audio stops mid-track | Ensure `fastcgi_read_timeout` is 0 or very large in Nginx config |
+| Search returns empty | Run `yt-dlp -U` on the server; YouTube occasionally breaks yt-dlp |
+| Monitor shows nothing | Must be an **Advanced** Monitor; plain monitors don't support colour |
+| Pocket Computer: "No speakers" | Restart Minecraft — known CC:Tweaked quirk |
 
 ---
 
 ## License
 
-MIT. Based on [computercraft-streaming-music](https://github.com/terreng/computercraft-streaming-music) by terreng (MIT).
+MIT — see [LICENSE](LICENSE).
+
+Based on [computercraft-streaming-music](https://github.com/terreng/computercraft-streaming-music) by [terreng](https://github.com/terreng), also MIT.
