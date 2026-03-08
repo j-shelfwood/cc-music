@@ -16,7 +16,7 @@ WORKDIR /app
 
 COPY server/ ./
 
-EXPOSE 8080
+EXPOSE 3001
 
 # PHP built-in server — simple, zero config, fine for low traffic
-CMD ["php", "-S", "0.0.0.0:8080", "index.php"]
+CMD ["php", "-S", "0.0.0.0:3001", "index.php"]
