@@ -2,11 +2,16 @@
 
 /**
  * cc-music — Self-hosted ComputerCraft streaming music server
- * Requires: yt-dlp, ffmpeg, PHP 8.x with popen enabled
+ * Audio extraction via yt-api.p.rapidapi.com (bypasses YouTube bot-detection)
+ * Requires: ffmpeg, PHP 8.x with popen enabled
  */
 
 // No PHP execution timeout — streams can take many minutes
 set_time_limit(0);
+
+// RapidAPI key — set via env var or fallback to hardcoded
+define('RAPIDAPI_KEY', getenv('RAPIDAPI_KEY') ?: '2d30b881bamsh14ffce6e60a7887p1de9bdjsne76d89970609');
+define('RAPIDAPI_HOST', 'yt-api.p.rapidapi.com');
 
 // Security: sanitize video ID to prevent shell injection
 function sanitize_video_id(string $id): ?string {
@@ -26,7 +31,6 @@ function replace_non_ascii(string $str): string {
         "\xe2\x80\xa2" => '·',   // bullet
     ];
     $str = strtr($str, $replacements);
-    // Replace remaining non-Latin-1 characters with '?'
     return preg_replace('/[^\x00-\xFF]/u', '?', $str);
 }
 
@@ -41,34 +45,56 @@ function to_hms(int $seconds): string {
     return sprintf('%d:%02d', $m, $s);
 }
 
-// Run yt-dlp and parse its newline-delimited JSON output
-function ytdlp_json(string $args): array {
-    $proxy   = getenv('YTDLP_PROXY')   ?: 'socks5://127.0.0.1:40000';
-    $cookies = getenv('YTDLP_COOKIES') ?: '';
-    $cookie_arg = $cookies ? ' --cookies ' . escapeshellarg($cookies) : '';
-    $cmd = 'yt-dlp --no-warnings --proxy ' . escapeshellarg($proxy) . $cookie_arg . ' ' . $args . ' 2>/dev/null';
-    $output = shell_exec($cmd);
-    if (!$output) return [];
-
-    $results = [];
-    foreach (explode("\n", trim($output)) as $line) {
-        if (!$line) continue;
-        $data = json_decode($line, true);
-        if ($data) $results[] = $data;
-    }
-    return $results;
+// Call the RapidAPI yt-api endpoint and return decoded JSON
+function rapidapi_get(string $path): ?array {
+    $url = 'https://' . RAPIDAPI_HOST . $path;
+    $ctx = stream_context_create([
+        'http' => [
+            'method'  => 'GET',
+            'header'  => implode("\r\n", [
+                'x-rapidapi-key: ' . RAPIDAPI_KEY,
+                'x-rapidapi-host: ' . RAPIDAPI_HOST,
+            ]),
+            'timeout' => 15,
+        ],
+    ]);
+    $body = @file_get_contents($url, false, $ctx);
+    if (!$body) return null;
+    return json_decode($body, true) ?: null;
 }
 
-// Build a result item array from yt-dlp entry data
-function build_item(array $entry): array {
-    $duration = isset($entry['duration']) ? to_hms((int)$entry['duration']) : '?:??';
-    $channel   = isset($entry['channel']) ? replace_non_ascii($entry['channel']) : '';
-    $uploader  = isset($entry['uploader']) ? replace_non_ascii($entry['uploader']) : $channel;
-    // Strip " - Topic" suffix (auto-generated music channels)
-    $artist = preg_replace('/ - Topic$/', '', $uploader ?: $channel);
+// Pick the best audio-only stream URL from a /dl response
+// Prefers itag 140 (m4a 128k), falls back to any audio/mp4, then audio/webm
+function best_audio_url(array $data): ?string {
+    $adaptive = $data['adaptiveFormats'] ?? [];
 
+    // Prefer itag 140 (audio/mp4 medium quality ~130kbps)
+    foreach ($adaptive as $f) {
+        if (($f['itag'] ?? '') == 140 && !empty($f['url'])) return $f['url'];
+    }
+    // Any audio/mp4
+    foreach ($adaptive as $f) {
+        if (str_starts_with($f['mimeType'] ?? '', 'audio/mp4') && !empty($f['url'])) return $f['url'];
+    }
+    // Any audio/webm
+    foreach ($adaptive as $f) {
+        if (str_starts_with($f['mimeType'] ?? '', 'audio/webm') && !empty($f['url'])) return $f['url'];
+    }
+    // Last resort: muxed format 18
+    foreach ($data['formats'] ?? [] as $f) {
+        if (!empty($f['url'])) return $f['url'];
+    }
+    return null;
+}
+
+// Build a result item from RapidAPI video/info or search entry
+function build_item(array $entry): array {
+    $seconds  = (int)($entry['lengthSeconds'] ?? 0);
+    $duration = $seconds > 0 ? to_hms($seconds) : '?:??';
+    $channel  = replace_non_ascii($entry['channelTitle'] ?? '');
+    $artist   = preg_replace('/ - Topic$/', '', $channel);
     return [
-        'id'     => $entry['id'],
+        'id'     => $entry['id'] ?? $entry['videoId'] ?? '',
         'name'   => replace_non_ascii($entry['title'] ?? 'Unknown'),
         'artist' => $duration . ' · ' . $artist,
     ];
@@ -76,13 +102,12 @@ function build_item(array $entry): array {
 
 // ─── Route: ?id=<video_id>&offset=<bytes> ── Stream audio as DFPWM ─────────────
 //
-// CC:Tweaked buffers the entire HTTP response before firing http_success,
-// so we cannot truly stream. Instead we serve fixed-size segments:
-// each request returns SEGMENT_BYTES of DFPWM audio starting at `offset`,
-// then closes. The client re-requests with the new offset until X-More is absent.
+// Fetches a direct CDN audio URL from RapidAPI (no yt-dlp, no bot-check),
+// then pipes it through ffmpeg to produce DFPWM segments.
+// Each request returns SEGMENT_BYTES of DFPWM starting at `offset`.
+// X-More / X-Next-Offset headers signal continuation to the CC client.
 //
-// SEGMENT_BYTES = 448KB ≈ 74 seconds of audio at 48kHz DFPWM (6KB/s).
-// Well under CC's default 16MB response limit.
+// SEGMENT_BYTES = 448KB ≈ 74 seconds at 48kHz DFPWM (6KB/s).
 
 define('SEGMENT_BYTES', 458752); // 448 * 1024
 
@@ -95,21 +120,25 @@ if (isset($_GET['id'])) {
     }
 
     $offset = max(0, (int)($_GET['offset'] ?? 0));
-    $url    = 'https://www.youtube.com/watch?v=' . $id;
 
-    // Pipe: yt-dlp → ffmpeg → DFPWM stdout
-    // Route through Cloudflare WARP SOCKS5 proxy (host network, port 40000)
-    // This avoids YouTube bot-detection on datacenter IPs.
-    // Falls back gracefully if WARP is not running (proxy just won't connect).
-    $proxy   = getenv('YTDLP_PROXY')   ?: 'socks5://127.0.0.1:40000';
-    $cookies = getenv('YTDLP_COOKIES') ?: '';
+    // Fetch stream URL from RapidAPI
+    $data = rapidapi_get('/dl?id=' . $id . '&cgeo=US');
+    if (!$data || ($data['status'] ?? '') !== 'OK') {
+        http_response_code(500);
+        echo 'RapidAPI error: ' . ($data['message'] ?? 'unknown');
+        exit;
+    }
 
-    $yt_args = ['yt-dlp', '--no-warnings', '--proxy', escapeshellarg($proxy)];
-    if ($cookies) { $yt_args[] = '--cookies'; $yt_args[] = escapeshellarg($cookies); }
-    array_push($yt_args, '-f', 'bestaudio*', '-o', '-', '--quiet', escapeshellarg($url));
+    $stream_url = best_audio_url($data);
+    if (!$stream_url) {
+        http_response_code(500);
+        echo 'No audio stream available';
+        exit;
+    }
 
+    // Pipe: curl (CDN URL) → ffmpeg → DFPWM stdout
     $cmd = implode(' ', [
-        implode(' ', $yt_args),
+        'curl', '-sL', escapeshellarg($stream_url),
         '|',
         'ffmpeg',
         '-hide_banner',
@@ -148,14 +177,12 @@ if (isset($_GET['id'])) {
         $sent += strlen($chunk);
     }
 
-    // Peek: is there more data after this segment?
     $has_more = !feof($handle);
     pclose($handle);
 
-    // If yt-dlp failed (bot-check etc.) we get 0 bytes — return 500 so the client shows an error
     if ($sent === 0) {
         http_response_code(500);
-        echo 'yt-dlp failed (bot check or unavailable video)';
+        echo 'Stream failed (no audio data)';
         exit;
     }
 
@@ -185,30 +212,28 @@ if (isset($_GET['search'])) {
         $m
     )) {
         $video_id = $m[1];
-        $entries = ytdlp_json('--dump-json --no-playlist ' . escapeshellarg('https://www.youtube.com/watch?v=' . $video_id));
-        $results = array_map('build_item', array_filter($entries, fn($e) => isset($e['id'])));
-        echo json_encode(array_values($results));
+        $data = rapidapi_get('/video/info?id=' . $video_id);
+        if ($data && isset($data['title'])) {
+            echo json_encode([build_item($data)]);
+        } else {
+            echo json_encode([]);
+        }
         exit;
     }
 
     // Match YouTube playlist URL
     if (preg_match('#[?&]list=([a-zA-Z0-9_-]{34})#', $search, $m)) {
         $playlist_id = $m[1];
-        $entries = ytdlp_json('--dump-json --flat-playlist ' . escapeshellarg('https://www.youtube.com/playlist?list=' . $playlist_id));
+        $data = rapidapi_get('/playlist?id=' . $playlist_id);
 
-        if (empty($entries)) {
+        if (empty($data['data'])) {
             echo json_encode([]);
             exit;
         }
 
-        // First entry may be the playlist meta — filter to actual video entries
-        $items = array_filter($entries, fn($e) => isset($e['id']) && isset($e['title']));
-        $playlist_items = array_map('build_item', array_values($items));
-
-        // Use first item's channel as playlist author fallback
-        $first = reset($entries);
-        $playlist_title = replace_non_ascii($first['playlist_title'] ?? $first['title'] ?? 'Playlist');
-        $channel = replace_non_ascii($first['channel'] ?? $first['uploader'] ?? '');
+        $playlist_items = array_values(array_map('build_item', $data['data']));
+        $playlist_title = replace_non_ascii($data['title'] ?? 'Playlist');
+        $channel        = replace_non_ascii($data['channelTitle'] ?? '');
 
         $result = [[
             'id'             => $playlist_id,
@@ -222,14 +247,16 @@ if (isset($_GET['search'])) {
         exit;
     }
 
-    // Otherwise: keyword search (top 5 results)
-    $entries = ytdlp_json(
-        '--dump-json --flat-playlist --no-playlist ' .
-        escapeshellarg('ytsearch5:' . $search)
-    );
-
-    $results = array_map('build_item', array_filter($entries, fn($e) => isset($e['id']) && isset($e['title'])));
-    echo json_encode(array_values($results));
+    // Keyword search — top 5 results
+    $data = rapidapi_get('/search?query=' . urlencode($search) . '&geo=US&lang=en&type=video');
+    $items = [];
+    foreach ($data['data'] ?? [] as $entry) {
+        if (!isset($entry['videoId']) || !isset($entry['title'])) continue;
+        $entry['id'] = $entry['videoId'];
+        $items[] = build_item($entry);
+        if (count($items) >= 5) break;
+    }
+    echo json_encode($items);
     exit;
 }
 
