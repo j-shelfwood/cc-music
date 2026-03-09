@@ -134,6 +134,60 @@ function build_item_rapidapi(array $entry): array {
 
 define('SEGMENT_BYTES', 458752); // 448 * 1024
 
+// ─── Server-side DFPWM segment cache ─────────────────────────────────────────
+//
+// Caches converted DFPWM segments on the VPS to avoid re-downloading from
+// YouTube for repeated plays / segment requests. Protects the 300 req/day
+// yt-dlp quota.
+//
+// Layout:
+//   /tmp/cc-music-cache/<id>/seg_<offset>       -- raw DFPWM binary
+//   /tmp/cc-music-cache/<id>/seg_<offset>.meta  -- JSON: {has_more, next_offset}
+//
+// TTL: 7 days (cleaned up on cache hit, lazy expiry on write)
+
+define('CACHE_DIR', '/tmp/cc-music-cache');
+define('CACHE_TTL', 7 * 24 * 3600); // 7 days in seconds
+
+function seg_cache_path(string $id, int $offset): string {
+    return CACHE_DIR . '/' . $id . '/seg_' . $offset;
+}
+
+function seg_cache_meta_path(string $id, int $offset): string {
+    return seg_cache_path($id, $offset) . '.meta';
+}
+
+function seg_cache_read(string $id, int $offset): ?array {
+    $path = seg_cache_path($id, $offset);
+    $meta = seg_cache_meta_path($id, $offset);
+
+    if (!file_exists($path) || !file_exists($meta)) return null;
+
+    // Expire stale entries
+    if (filemtime($path) < time() - CACHE_TTL) {
+        @unlink($path);
+        @unlink($meta);
+        return null;
+    }
+
+    $body = file_get_contents($path);
+    $m    = json_decode(file_get_contents($meta), true);
+    if ($body === false || !$m) return null;
+
+    return ['body' => $body, 'has_more' => (bool)$m['has_more'], 'next_offset' => (int)$m['next_offset']];
+}
+
+function seg_cache_write(string $id, int $offset, string $body, bool $has_more, int $next_offset): void {
+    $dir = CACHE_DIR . '/' . $id;
+    if (!is_dir($dir)) mkdir($dir, 0755, true);
+
+    file_put_contents(seg_cache_path($id, $offset), $body);
+    file_put_contents(seg_cache_meta_path($id, $offset), json_encode([
+        'has_more'    => $has_more,
+        'next_offset' => $next_offset,
+    ]));
+}
+
 if (isset($_GET['id'])) {
     $id = sanitize_video_id(trim($_GET['id']));
     if (!$id) {
@@ -143,9 +197,25 @@ if (isset($_GET['id'])) {
     }
 
     $offset = max(0, (int)($_GET['offset'] ?? 0));
+
+    // ── Cache hit ────────────────────────────────────────────────────────────
+    $cached = seg_cache_read($id, $offset);
+    if ($cached !== null) {
+        header('Content-Type: application/octet-stream');
+        header('Cache-Control: no-cache');
+        header('X-Accel-Buffering: no');
+        header('X-Cache: HIT');
+        if ($cached['has_more']) {
+            header('X-More: 1');
+            header('X-Next-Offset: ' . $cached['next_offset']);
+        }
+        echo $cached['body'];
+        exit;
+    }
+
+    // ── Cache miss: fetch from YouTube ───────────────────────────────────────
     $proxy  = resolve_proxy();
 
-    // Build yt-dlp stream command (primary)
     $yt_cmd = implode(' ', [
         'yt-dlp', '--no-warnings',
         '--proxy', escapeshellarg($proxy),
@@ -195,7 +265,8 @@ if (isset($_GET['id'])) {
         $sent += strlen($chunk);
     }
 
-    $has_more = !feof($handle);
+    $has_more    = !feof($handle);
+    $next_offset = $offset + $sent;
     pclose($handle);
 
     if ($sent === 0) {
@@ -204,12 +275,16 @@ if (isset($_GET['id'])) {
         exit;
     }
 
+    // Write to cache before responding
+    seg_cache_write($id, $offset, $body, $has_more, $next_offset);
+
     header('Content-Type: application/octet-stream');
     header('Cache-Control: no-cache');
     header('X-Accel-Buffering: no');
+    header('X-Cache: MISS');
     if ($has_more) {
         header('X-More: 1');
-        header('X-Next-Offset: ' . ($offset + $sent));
+        header('X-Next-Offset: ' . $next_offset);
     }
 
     echo $body;
