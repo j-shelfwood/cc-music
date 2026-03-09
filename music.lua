@@ -64,6 +64,7 @@ local decoder           = dfpwm.make_decoder()  -- reset per track to clear filt
 local needs_next_chunk  = 0
 local audio_buffer      = nil
 local audio_offset      = 0   -- byte offset for segmented download
+local audio_seg_offset  = 0   -- offset of the segment currently being fetched (cache key)
 local audio_has_more    = false  -- server signalled more segments follow
 
 -- Search
@@ -754,9 +755,121 @@ local function uiLoop()
     end
 end
 
+-- ─── Segment cache ─────────────────────────────────────────────────────────────
+--
+-- Stores raw DFPWM segment files on the computer's local filesystem.
+-- Layout:
+--   .cc-music/<video_id>/<offset>        -- raw binary segment
+--   .cc-music/<video_id>/<offset>.meta   -- "1" if X-More, next offset on second line
+--   .cc-music/index                      -- newline-separated video IDs, oldest first
+--
+-- Max MAX_CACHED_TRACKS tracks kept; oldest evicted when limit exceeded.
+-- Each track can be up to ~10 segments (≈4.5MB) but we don't cap per-track size.
+
+local CACHE_DIR        = ".cc-music"
+local MAX_CACHED_TRACKS = 10
+
+local function cachePath(id, offset)
+    return CACHE_DIR .. "/" .. id .. "/" .. offset
+end
+
+local function cacheMetaPath(id, offset)
+    return cachePath(id, offset) .. ".meta"
+end
+
+local function cacheReadIndex()
+    local f = fs.open(CACHE_DIR .. "/index", "r")
+    if not f then return {} end
+    local ids = {}
+    local line = f.readLine()
+    while line do
+        if #line > 0 then ids[#ids + 1] = line end
+        line = f.readLine()
+    end
+    f.close()
+    return ids
+end
+
+local function cacheWriteIndex(ids)
+    fs.makeDir(CACHE_DIR)
+    local f = fs.open(CACHE_DIR .. "/index", "w")
+    if not f then return end
+    for _, id in ipairs(ids) do f.writeLine(id) end
+    f.close()
+end
+
+local function cacheTouchTrack(id)
+    -- Move id to the end (most-recently-used), evict oldest if over limit
+    local ids = cacheReadIndex()
+    -- Remove existing entry
+    local new = {}
+    for _, v in ipairs(ids) do
+        if v ~= id then new[#new + 1] = v end
+    end
+    new[#new + 1] = id
+    -- Evict oldest entries if over limit
+    while #new > MAX_CACHED_TRACKS do
+        local evict = table.remove(new, 1)
+        if fs.exists(CACHE_DIR .. "/" .. evict) then
+            fs.delete(CACHE_DIR .. "/" .. evict)
+        end
+    end
+    cacheWriteIndex(new)
+end
+
+local function cacheHasSegment(id, offset)
+    return fs.exists(cachePath(id, offset))
+end
+
+local function cacheReadMeta(id, offset)
+    local f = fs.open(cacheMetaPath(id, offset), "r")
+    if not f then return false, offset end
+    local has_more   = f.readLine() == "1"
+    local next_off   = tonumber(f.readLine()) or offset
+    f.close()
+    return has_more, next_off
+end
+
+local function cacheWriteSegment(id, offset, data, has_more, next_offset)
+    fs.makeDir(CACHE_DIR .. "/" .. id)
+    local f = fs.open(cachePath(id, offset), "wb")
+    if not f then return end
+    f.write(data)
+    f.close()
+    local mf = fs.open(cacheMetaPath(id, offset), "w")
+    if not mf then return end
+    mf.writeLine(has_more and "1" or "0")
+    mf.writeLine(tostring(next_offset))
+    mf.close()
+    cacheTouchTrack(id)
+end
+
+local function cacheOpenSegment(id, offset)
+    -- Returns a file handle compatible with player_handle (.read / .close)
+    return fs.open(cachePath(id, offset), "rb")
+end
+
 -- ─── Audio loop ────────────────────────────────────────────────────────────────
 
 local function requestSegment(id, offset)
+    audio_seg_offset = offset
+    -- Serve from cache if available
+    if cacheHasSegment(id, offset) then
+        local fh = cacheOpenSegment(id, offset)
+        if fh then
+            local has_more, next_off = cacheReadMeta(id, offset)
+            audio_has_more = has_more
+            audio_offset   = next_off
+            is_loading     = false
+            player_handle  = fh
+            playing_status = 1
+            cacheTouchTrack(id)
+            signalRedraw()
+            queueEvent("audio_update")
+            return
+        end
+        -- Cache file unreadable — fall through to HTTP
+    end
     local url = api_base_url .. "?v=" .. version
                 .. "&id=" .. textutils.urlEncode(id)
                 .. "&offset=" .. offset
@@ -772,6 +885,7 @@ local function audioLoop()
             if playing_id ~= this_id then
                 playing_id       = this_id
                 audio_offset     = 0
+                audio_seg_offset = 0
                 audio_has_more   = false
                 playing_status   = 0
                 needs_next_chunk = 1
@@ -893,11 +1007,29 @@ local function httpLoop()
                     search_page = 0
                     signalRedraw()
                 elseif url == last_download_url then
-                    local headers  = handle.getResponseHeaders()
-                    audio_has_more = (headers and headers["X-More"] == "1")
-                    audio_offset   = tonumber(headers and headers["X-Next-Offset"]) or audio_offset
+                    local headers     = handle.getResponseHeaders()
+                    local has_more    = (headers and headers["X-More"] == "1")
+                    local next_offset = tonumber(headers and headers["X-Next-Offset"]) or audio_offset
+                    -- Read all bytes so we can write to cache; HTTP handles can't be re-read
+                    local data = handle.readAll()
+                    handle.close()
+                    cacheWriteSegment(playing_id, audio_seg_offset, data, has_more, next_offset)
+                    local fh = cacheOpenSegment(playing_id, audio_seg_offset)
+                    if not fh then
+                        -- Cache write failed (disk full?) — fall back to in-memory string handle
+                        fh = { _data = data, _pos = 1,
+                               read  = function(self, n)
+                                   if self._pos > #self._data then return nil end
+                                   local s = self._data:sub(self._pos, self._pos + n - 1)
+                                   self._pos = self._pos + #s
+                                   return #s > 0 and s or nil
+                               end,
+                               close = function() end }
+                    end
+                    audio_has_more = has_more
+                    audio_offset   = next_offset
                     is_loading     = false
-                    player_handle  = handle
+                    player_handle  = fh
                     playing_status = 1
                     signalRedraw()
                     queueEvent("audio_update")
