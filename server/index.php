@@ -219,7 +219,7 @@ if (isset($_GET['id'])) {
     $yt_cmd = implode(' ', [
         'yt-dlp', '--no-warnings',
         '--proxy', escapeshellarg($proxy),
-        '-f', 'bestaudio*',
+        '-f', '251/140/bestaudio',
         '-o', '-',
         '--quiet',
         escapeshellarg('https://www.youtube.com/watch?v=' . $id),
