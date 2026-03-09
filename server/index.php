@@ -47,18 +47,14 @@ function to_hms(int $seconds): string {
 
 // Call the RapidAPI yt-api endpoint and return decoded JSON
 function rapidapi_get(string $path): ?array {
-    $url = 'https://' . RAPIDAPI_HOST . $path;
-    $ctx = stream_context_create([
-        'http' => [
-            'method'  => 'GET',
-            'header'  => implode("\r\n", [
-                'x-rapidapi-key: ' . RAPIDAPI_KEY,
-                'x-rapidapi-host: ' . RAPIDAPI_HOST,
-            ]),
-            'timeout' => 15,
-        ],
+    $url  = 'https://' . RAPIDAPI_HOST . $path;
+    $cmd  = implode(' ', [
+        'curl', '-sf', '--max-time', '15',
+        '-H', escapeshellarg('x-rapidapi-key: ' . RAPIDAPI_KEY),
+        '-H', escapeshellarg('x-rapidapi-host: ' . RAPIDAPI_HOST),
+        escapeshellarg($url),
     ]);
-    $body = @file_get_contents($url, false, $ctx);
+    $body = shell_exec($cmd);
     if (!$body) return null;
     return json_decode($body, true) ?: null;
 }
