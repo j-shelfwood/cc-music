@@ -43,6 +43,26 @@ function to_hms(int $seconds): string {
     return sprintf('%d:%02d', $m, $s);
 }
 
+// Resolve which SOCKS5 proxy to use.
+// Primary: Mac via Tailscale (residential IP) — socks5://100.113.252.30:40001
+// Fallback: Cloudflare WARP — socks5://127.0.0.1:40000
+// Detection: attempt a TCP connect with a 2-second timeout; if it fails, use WARP.
+function resolve_proxy(): string {
+    static $resolved = null;
+    if ($resolved !== null) return $resolved;
+
+    $mac_proxy  = getenv('YTDLP_PROXY_MAC')  ?: 'socks5://100.113.252.30:40001';
+    $warp_proxy = getenv('YTDLP_PROXY_WARP') ?: 'socks5://127.0.0.1:40000';
+
+    // Quick TCP probe: nc -z -w2 <host> <port>
+    // Returns exit code 0 if port is open, non-zero otherwise.
+    $host = '100.113.252.30';
+    $port = 40001;
+    $probe = shell_exec('nc -z -w2 ' . escapeshellarg($host) . ' ' . (int)$port . ' 2>/dev/null; echo $?');
+    $resolved = (trim($probe) === '0') ? $mac_proxy : $warp_proxy;
+    return $resolved;
+}
+
 // Call RapidAPI yt-api and return decoded JSON (curl-based, avoids PHP SSL issues)
 function rapidapi_get(string $path): ?array {
     $url  = 'https://' . RAPIDAPI_HOST . $path;
@@ -59,7 +79,7 @@ function rapidapi_get(string $path): ?array {
 
 // Run yt-dlp and parse its newline-delimited JSON output
 function ytdlp_json(string $args): array {
-    $proxy = getenv('YTDLP_PROXY') ?: 'socks5://127.0.0.1:40000';
+    $proxy = resolve_proxy();
     $cmd   = 'yt-dlp --no-warnings --proxy ' . escapeshellarg($proxy) . ' ' . $args . ' 2>/dev/null';
     $output = shell_exec($cmd);
     if (!$output) return [];
@@ -100,9 +120,9 @@ function build_item_rapidapi(array $entry): array {
 
 // ─── Route: ?id=<video_id>&offset=<bytes> ── Stream audio as DFPWM ─────────────
 //
-// Primary: yt-dlp via WARP proxy (handles bot-check for most videos)
-// Fallback: if yt-dlp produces 0 bytes, fetch stream URL via RapidAPI
-//           and pipe via yt-dlp --hls-use-mpegts (direct URL download)
+// Proxy chain (resolve_proxy):
+//   1. Mac via Tailscale socks5://100.113.252.30:40001 — residential IP, bypasses bot-check
+//   2. WARP socks5://127.0.0.1:40000 — Cloudflare IP, fallback when Mac offline
 //
 // SEGMENT_BYTES = 448KB ≈ 74 seconds at 48kHz DFPWM (6KB/s)
 
@@ -117,7 +137,7 @@ if (isset($_GET['id'])) {
     }
 
     $offset = max(0, (int)($_GET['offset'] ?? 0));
-    $proxy  = getenv('YTDLP_PROXY') ?: 'socks5://127.0.0.1:40000';
+    $proxy  = resolve_proxy();
 
     // Build yt-dlp stream command (primary)
     $yt_cmd = implode(' ', [
