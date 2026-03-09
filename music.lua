@@ -162,6 +162,8 @@ local CTRL_ROW   = 7
 local VOL_ROW    = 9
 local SEP_ROW    = 10
 local QUEUE_ROW  = 11
+local LOOP_COL   = 16  -- fixed start column for loop button
+-- SHUF_COL is dynamic: LOOP_COL + len(loop_label) + 1
 
 local function drawNowPlaying()
     term.setBackgroundColor(colors.black)
@@ -206,10 +208,11 @@ local function drawNowPlaying()
     -- Loop button (3 states)
     local loop_labels = {[0]=" Loop ",[1]=" Loop Q ",[2]=" Loop 1 "}
     local loop_active = looping ~= 0
-    button(16, CTRL_ROW, loop_labels[looping], loop_active)
+    local shuf_col = LOOP_COL + #loop_labels[looping] + 1
+    button(LOOP_COL, CTRL_ROW, loop_labels[looping], loop_active)
 
     -- Shuffle button
-    button(16 + #loop_labels[looping] + 1, CTRL_ROW, " Shuf ", shuffle)
+    button(shuf_col, CTRL_ROW, " Shuf ", shuffle)
 
     -- Row 8: blank
     tfill(1, 8, W, colors.black, colors.black)
@@ -535,14 +538,18 @@ local function handleNowPlayingClick(x, y)
         elseif x >= 9 and x <= 14 then
             skipTrack()
 
-        -- Loop (cols 16-23ish — " Loop Q " is 9 chars)
-        elseif x >= 16 and x <= 24 then
-            looping = (looping + 1) % 3
-
-        -- Shuffle (after loop button)
-        elseif x >= 26 and x <= 32 then
-            shuffle = not shuffle
-            if shuffle and #queue > 1 then shuffleTable(queue) end
+        -- Loop button: LOOP_COL to LOOP_COL + label_len - 1
+        else
+            local loop_labels = {[0]=" Loop ",[1]=" Loop Q ",[2]=" Loop 1 "}
+            local loop_end  = LOOP_COL + #loop_labels[looping] - 1
+            local shuf_col  = loop_end + 2
+            local shuf_end  = shuf_col + #" Shuf " - 1
+            if x >= LOOP_COL and x <= loop_end then
+                looping = (looping + 1) % 3
+            elseif x >= shuf_col and x <= shuf_end then
+                shuffle = not shuffle
+                if shuffle and #queue > 1 then shuffleTable(queue) end
+            end
         end
 
     elseif y == VOL_ROW then
@@ -861,7 +868,10 @@ local function audioLoop()
 
                     local ok, _ = pcall(parallel.waitForAll, table.unpack(fns))
                     if not ok then
-                        needs_next_chunk = 2
+                        -- Speaker error — stop playback cleanly
+                        playing          = false
+                        playing_id       = nil
+                        needs_next_chunk = 0
                         is_error         = true
                         signalRedraw()
                         break
