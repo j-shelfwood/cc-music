@@ -107,8 +107,14 @@ function build_item_ytdlp(array $entry): array {
 
 // Build a result item from a RapidAPI video/info or search entry
 function build_item_rapidapi(array $entry): array {
-    $seconds  = (int)($entry['lengthSeconds'] ?? 0);
-    $duration = $seconds > 0 ? to_hms($seconds) : '?:??';
+    // /video/info → lengthSeconds (int); /search → lengthText (e.g. "3:34")
+    if (isset($entry['lengthSeconds']) && (int)$entry['lengthSeconds'] > 0) {
+        $duration = to_hms((int)$entry['lengthSeconds']);
+    } elseif (!empty($entry['lengthText'])) {
+        $duration = $entry['lengthText'];
+    } else {
+        $duration = '?:??';
+    }
     $channel  = replace_non_ascii($entry['channelTitle'] ?? '');
     $artist   = preg_replace('/ - Topic$/', '', $channel);
     return [
