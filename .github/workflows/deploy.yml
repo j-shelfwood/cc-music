@@ -62,10 +62,9 @@ jobs:
               git -C /opt/cc-music pull
             fi
 
-            # Restart PHP server (runs natively via systemd, no Docker)
-            systemctl restart cc-music
-
-            sleep 2
-            systemctl is-active --quiet cc-music || { echo 'ERROR: cc-music not running'; journalctl -u cc-music -n 20 --no-pager; exit 1; }
+            # PHP-FPM serves index.php directly from /opt/cc-music/server/ —
+            # no restart needed after git pull, files are read per-request.
+            # Verify php-fpm is healthy.
+            systemctl is-active --quiet php8.1-fpm || { echo 'ERROR: php8.1-fpm not running'; journalctl -u php8.1-fpm -n 20 --no-pager; exit 1; }
             echo 'Deploy complete: https://cc-music.shelfwood.co'
           "
