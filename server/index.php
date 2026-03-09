@@ -172,62 +172,6 @@ if (isset($_GET['id'])) {
     $has_more = !feof($handle);
     pclose($handle);
 
-    // ── Fallback: yt-dlp failed → try RapidAPI + yt-dlp direct URL download ──
-    if ($sent === 0 && $offset === 0) {
-        $data = rapidapi_get('/dl?id=' . $id . '&cgeo=US');
-        $stream_url = null;
-
-        if ($data && ($data['status'] ?? '') === 'OK') {
-            // Prefer audio-only itag 140 (m4a ~130kbps)
-            foreach ($data['adaptiveFormats'] ?? [] as $f) {
-                if (($f['itag'] ?? '') == 140 && !empty($f['url'])) {
-                    $stream_url = $f['url'];
-                    break;
-                }
-            }
-            // Fallback: any audio/mp4
-            if (!$stream_url) {
-                foreach ($data['adaptiveFormats'] ?? [] as $f) {
-                    if (str_starts_with($f['mimeType'] ?? '', 'audio/mp4') && !empty($f['url'])) {
-                        $stream_url = $f['url'];
-                        break;
-                    }
-                }
-            }
-            // Last resort: muxed format 18
-            if (!$stream_url && !empty($data['formats'][0]['url'])) {
-                $stream_url = $data['formats'][0]['url'];
-            }
-        }
-
-        if ($stream_url) {
-            // Use yt-dlp to download the direct URL — it handles redirects,
-            // range requests, and CDN quirks properly
-            $fb_cmd = implode(' ', [
-                'yt-dlp', '--no-warnings',
-                '-o', '-', '--quiet',
-                escapeshellarg($stream_url),
-                '|',
-                $ffmpeg_args,
-            ]);
-
-            $handle = popen($fb_cmd, 'r');
-            if ($handle) {
-                $sent = 0;
-                $body = '';
-                while ($sent < SEGMENT_BYTES && !feof($handle)) {
-                    $want  = min(16384, SEGMENT_BYTES - $sent);
-                    $chunk = fread($handle, $want);
-                    if ($chunk === false) break;
-                    $body .= $chunk;
-                    $sent += strlen($chunk);
-                }
-                $has_more = !feof($handle);
-                pclose($handle);
-            }
-        }
-    }
-
     if ($sent === 0) {
         http_response_code(500);
         echo 'Stream failed (bot check or unavailable video)';
