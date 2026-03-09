@@ -53,13 +53,14 @@ local volume        = 1.5
 
 -- Internal playback state
 local CHUNK_SIZE        = 16 * 1024  -- bytes per audio read
+local dfpwm             = require("cc.audio.dfpwm")
 local playing_id        = nil
 local last_download_url = nil
 local playing_status    = 0
 local is_loading        = false
 local is_error          = false
 local player_handle     = nil
-local decoder           = require("cc.audio.dfpwm").make_decoder()
+local decoder           = dfpwm.make_decoder()  -- reset per track to clear filter state
 local needs_next_chunk  = 0
 local audio_buffer      = nil
 local audio_offset      = 0   -- byte offset for segmented download
@@ -774,6 +775,7 @@ local function audioLoop()
                 audio_has_more   = false
                 playing_status   = 0
                 needs_next_chunk = 1
+                decoder          = dfpwm.make_decoder()  -- fresh state per track
                 requestSegment(playing_id, 0)
                 is_loading = true
                 signalRedraw()
