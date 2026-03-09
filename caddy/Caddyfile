@@ -1,0 +1,30 @@
+# Caddyfile for influx.shelfwood.co
+# Managed manually on server at /etc/caddy/Caddyfile
+# This file is for reference — not deployed by CI.
+
+influx.shelfwood.co {
+  reverse_proxy 127.0.0.1:8086
+}
+
+base.shelfwood.co {
+  reverse_proxy 127.0.0.1:3000
+}
+
+cc-music.shelfwood.co {
+  # Static landing page (built by Astro, deployed by GitHub Actions)
+  root * /opt/cc-music/web/dist
+  file_server
+
+  # PHP API backend via FPM (concurrent, no single-threaded bottleneck)
+  # php -S is single-process and causes broken pipe on concurrent requests
+  handle /api/* {
+    root * /opt/cc-music/server
+    php_fastcgi unix//run/php/php8.1-fpm.sock {
+      request_buffers 1MB
+      read_timeout 86400s   # segments can take many minutes to transcode
+      write_timeout 86400s
+      dial_timeout 30s
+    }
+    rewrite * /index.php
+  }
+}

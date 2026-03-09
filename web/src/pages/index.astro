@@ -228,29 +228,45 @@ import Layout from '@/layouts/Layout.astro';
     <h2 class="font-mc text-xl text-mc-white mb-6 border-b-2 border-mc-cobble pb-2">Self-Host the Backend</h2>
 
     <div class="grid md:grid-cols-2 gap-6 mb-6">
-      <!-- Bare PHP -->
+      <!-- PHP-FPM + Caddy (recommended) -->
       <div class="mc-panel">
-        <div class="mc-header mb-4">Bare PHP (Recommended)</div>
-        <p class="font-mc text-xs text-mc-muted mb-3">Requirements: PHP 8.x, yt-dlp, ffmpeg</p>
+        <div class="mc-header mb-4">PHP-FPM + Caddy (Recommended)</div>
+        <p class="font-mc text-xs text-mc-muted mb-3 leading-relaxed">
+          Requirements: PHP 8.x + FPM, yt-dlp, ffmpeg, Caddy.<br/>
+          <span class="text-mc-gold">⚠ Do not use <code>php -S</code> — it's single-process and breaks on concurrent requests.</span>
+        </p>
         <div class="mc-slot p-3 mb-3">
           <div class="font-mc text-xs text-mc-stone mb-2">bash</div>
           <div class="font-mc text-sm text-mc-white leading-7">
-            apt install php ffmpeg<br/>
-            wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \<br/>
-            &nbsp;&nbsp;&nbsp;&nbsp; -O /usr/local/bin/yt-dlp<br/>
-            chmod +x /usr/local/bin/yt-dlp<br/>
-            php -S 0.0.0.0:3001 server/index.php
+            apt install php8.1-fpm ffmpeg<br/>
+            curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \<br/>
+            &nbsp;&nbsp;-o /usr/local/bin/yt-dlp &amp;&amp; chmod +x /usr/local/bin/yt-dlp<br/>
+            git clone https://github.com/j-shelfwood/cc-music.git /opt/cc-music
           </div>
         </div>
-        <p class="font-mc text-xs text-mc-muted leading-relaxed">
-          Point a reverse proxy (Caddy, Nginx) at <span class="text-mc-diamond">127.0.0.1:3001</span>.
-          Set <span class="text-mc-diamond">fastcgi_read_timeout 86400</span> in Nginx.
-        </p>
+        <p class="font-mc text-xs text-mc-muted mb-2">Caddyfile:</p>
+        <div class="mc-slot p-3">
+          <div class="font-mc text-xs text-mc-stone mb-2">caddyfile</div>
+          <div class="font-mc text-sm text-mc-white leading-7">
+            your-domain.com &#123;<br/>
+            &nbsp;&nbsp;handle /api/* &#123;<br/>
+            &nbsp;&nbsp;&nbsp;&nbsp;root * /opt/cc-music/server<br/>
+            &nbsp;&nbsp;&nbsp;&nbsp;php_fastcgi unix//run/php/php8.1-fpm.sock &#123;<br/>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;read_timeout 86400s<br/>
+            &nbsp;&nbsp;&nbsp;&nbsp;&#125;<br/>
+            &nbsp;&nbsp;&nbsp;&nbsp;rewrite * /index.php<br/>
+            &nbsp;&nbsp;&#125;<br/>
+            &#125;
+          </div>
+        </div>
       </div>
 
       <!-- Docker -->
       <div class="mc-panel">
         <div class="mc-header mb-4">Docker</div>
+        <p class="font-mc text-xs text-mc-muted mb-3 leading-relaxed">
+          Runs php-fpm inside the container. Point Caddy or Nginx at port 3001.
+        </p>
         <div class="mc-slot p-3 mb-3">
           <div class="font-mc text-xs text-mc-stone mb-2">bash</div>
           <div class="font-mc text-sm text-mc-white leading-7">
@@ -260,7 +276,9 @@ import Layout from '@/layouts/Layout.astro';
           </div>
         </div>
         <p class="font-mc text-xs text-mc-muted leading-relaxed">
-          Then point a reverse proxy (Caddy, Nginx) at <span class="text-mc-diamond">127.0.0.1:3001</span>.
+          Point your reverse proxy at <span class="text-mc-diamond">127.0.0.1:3001</span>.
+          Set <span class="text-mc-diamond">read_timeout 86400s</span> (Caddy) or
+          <span class="text-mc-diamond">proxy_read_timeout 86400</span> (Nginx).
         </p>
       </div>
     </div>
@@ -298,8 +316,12 @@ import Layout from '@/layouts/Layout.astro';
               <td class="py-2 text-mc-muted">Check yt-dlp and ffmpeg are in PATH; run yt-dlp -U to update</td>
             </tr>
             <tr class="border-b border-mc-cobble/40">
+              <td class="py-2 pr-6 text-mc-redstone">Audio stops after ~30s</td>
+              <td class="py-2 text-mc-muted">You're using <code>php -S</code> — it's single-process and drops concurrent requests. Switch to php-fpm.</td>
+            </tr>
+            <tr class="border-b border-mc-cobble/40">
               <td class="py-2 pr-6 text-mc-redstone">Audio stops mid-track</td>
-              <td class="py-2 text-mc-muted">Set fastcgi_read_timeout to 0 or 86400 in Nginx config</td>
+              <td class="py-2 text-mc-muted">Reverse proxy timeout too low. Set <code>read_timeout 86400s</code> (Caddy) or <code>proxy_read_timeout 86400</code> (Nginx).</td>
             </tr>
             <tr class="border-b border-mc-cobble/40">
               <td class="py-2 pr-6 text-mc-redstone">Search returns empty</td>
