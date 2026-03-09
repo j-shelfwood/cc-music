@@ -14,11 +14,12 @@ cc-music is a ground-up reimplementation inspired by [computercraft-streaming-mu
 | Original | cc-music |
 |---|---|
 | Firebase Cloud Functions (60s timeout) | PHP on any VPS — unlimited stream duration |
-| RapidAPI YT-API (paid, rate-limited, key required) | `yt-dlp` — free, self-hosted, no keys |
 | Firebase deploy pipeline | One PHP file, drop anywhere |
+| Audio via RapidAPI CDN URLs (IP-locked to Firebase) | Audio via `yt-dlp` + `ffmpeg` — self-hosted |
+| Search via RapidAPI (requires paid key) | Search via RapidAPI with `yt-dlp` fallback |
 | 5 fixed search results | 10 results with pagination |
 | No wired modem speaker support | Discovers speakers across wired networks |
-| No monitor output | Fancy now-playing display on any attached monitor |
+| No monitor output | Now-playing display on any attached monitor |
 | Volume change restarts track | Volume applies live on next audio chunk |
 | No shuffle | Shuffle mode for queue |
 | No queue management | Per-item remove, clear queue, scroll |
@@ -56,7 +57,7 @@ Then run it:
 music
 ```
 
-The script connects to the public backend at `https://cc-music.shelfwood.co/` by default. No setup required — just a speaker and an internet connection.
+The script connects to the public backend at `https://cc-music.shelfwood.co/api/` by default. No setup required — just a speaker and an internet connection.
 
 ---
 
@@ -90,7 +91,7 @@ The script connects to the public backend at `https://cc-music.shelfwood.co/` by
 
 ## Public instance
 
-The backend at `https://cc-music.shelfwood.co/` is open for anyone to use. It runs on a VPS using the Docker setup in this repo. `yt-dlp` and `ffmpeg` handle all audio — no API keys, no rate limits beyond VPS bandwidth.
+The backend at `https://cc-music.shelfwood.co/api/` is open for anyone to use. It runs `yt-dlp` + `ffmpeg` on a VPS — no rate limits beyond VPS bandwidth.
 
 If the public instance is down or you want your own, self-hosting takes about 5 minutes.
 
@@ -98,17 +99,7 @@ If the public instance is down or you want your own, self-hosting takes about 5 
 
 ## Self-host the backend
 
-### Option A — Docker (recommended)
-
-```bash
-git clone https://github.com/j-shelfwood/cc-music.git
-cd cc-music
-docker compose up -d
-```
-
-Then point a reverse proxy (Caddy, Nginx) at `127.0.0.1:3001`.
-
-### Option B — Bare PHP
+### Bare PHP (recommended)
 
 **Requirements:** PHP 8.x, `yt-dlp` in `$PATH`, `ffmpeg` in `$PATH`
 
@@ -118,7 +109,13 @@ wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
      -O /usr/local/bin/yt-dlp && chmod +x /usr/local/bin/yt-dlp
 ```
 
-Copy `server/index.php` (and `server/.htaccess` for Apache, or use `server/nginx.conf` snippet) to your web root.
+Serve `server/index.php` with PHP's built-in server or a web server:
+
+```bash
+php -S 0.0.0.0:3001 server/index.php
+```
+
+Then point a reverse proxy (Caddy, Nginx) at `127.0.0.1:3001`.
 
 **Nginx — critical settings:**
 ```nginx
@@ -126,11 +123,21 @@ fastcgi_read_timeout 86400;  # streams can run for 40+ minutes
 fastcgi_buffering off;        # don't buffer audio in memory
 ```
 
+### Docker
+
+```bash
+git clone https://github.com/j-shelfwood/cc-music.git
+cd cc-music
+docker compose up -d
+```
+
+Then point a reverse proxy at `127.0.0.1:3001`.
+
 ### After setup — point music.lua at your server
 
 Edit line 4 of `music.lua`:
 ```lua
-local api_base_url = "https://your-domain.com/"
+local api_base_url = "https://your-domain.com/api/"
 ```
 
 ---
