@@ -240,8 +240,10 @@ if (isset($_GET['id'])) {
     $handle = popen($cmd, 'r');
 
     if (!$handle) {
+        error_log("cc-music: popen failed for id=$id proxy=$proxy");
         http_response_code(500);
-        echo 'Error 500';
+        header('X-Error: popen-failed');
+        echo 'Stream failed (popen error)';
         exit;
     }
 
@@ -270,7 +272,9 @@ if (isset($_GET['id'])) {
     pclose($handle);
 
     if ($sent === 0) {
+        error_log("cc-music: zero bytes for id=$id offset=$offset proxy=$proxy");
         http_response_code(500);
+        header('X-Error: stream-failed');
         echo 'Stream failed (bot check or unavailable video)';
         exit;
     }
@@ -309,6 +313,7 @@ if (isset($_GET['search'])) {
         if ($data && isset($data['title'])) {
             echo json_encode([build_item_rapidapi($data)]);
         } else {
+            error_log("cc-music: rapidapi_get failed for /video/info?id=$video_id — falling back to yt-dlp");
             // Fallback to yt-dlp
             $entries = ytdlp_json('--dump-json --no-playlist ' . escapeshellarg('https://www.youtube.com/watch?v=' . $video_id));
             $results = array_map('build_item_ytdlp', array_filter($entries, fn($e) => isset($e['id'])));
@@ -357,6 +362,7 @@ if (isset($_GET['search'])) {
     }
 
     if (empty($items)) {
+        error_log("cc-music: rapidapi_get returned no results for search: $search — falling back to yt-dlp");
         // Fallback to yt-dlp search
         $entries = ytdlp_json(
             '--dump-json --flat-playlist --no-playlist ' .
@@ -365,6 +371,9 @@ if (isset($_GET['search'])) {
         $items = array_values(array_map('build_item_ytdlp',
             array_filter($entries, fn($e) => isset($e['id']) && isset($e['title']))
         ));
+        if (empty($items)) {
+            error_log("cc-music: yt-dlp search returned no results for: $search");
+        }
     }
 
     echo json_encode($items);

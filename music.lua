@@ -54,14 +54,12 @@ local S = {
     volume      = 1.5,
 
     -- Playback (internal)
-    playing_id       = nil,
-    playing_status   = 0,
-    player_handle    = nil,
-    decoder          = dfpwm.make_decoder(),
-    needs_next_chunk = 0,
-    audio_buffer     = nil,
-    audio_offset     = 0,
-    audio_has_more   = false,
+    playing_id        = nil,
+    segment_ready     = false,
+    player_handle     = nil,
+    decoder           = dfpwm.make_decoder(),
+    audio_offset      = 0,
+    audio_has_more    = false,
     last_download_url = nil,
 
     -- Progress display
@@ -69,9 +67,10 @@ local S = {
     duration = 0,         -- total seconds (parsed from artist string), 0 = unknown
 
     -- Status flags
-    is_loading   = false, -- waiting for first segment of a new track
-    is_buffering = false, -- waiting for a subsequent segment mid-track
-    is_error     = false,
+    is_loading    = false, -- waiting for first segment of a new track
+    is_buffering  = false, -- waiting for a subsequent segment mid-track
+    is_error      = false,
+    error_message = nil,   -- server error message to display in row 5
 
     -- Search
     last_search     = nil,
@@ -200,7 +199,10 @@ local function drawNowPlaying()
     -- Row 5: progress / status
     tfill(2, 5, S.W - 2, colors.black, colors.black)
     if S.is_error then
-        twrite(2, 5, "Network error — skip or retry", colors.red, colors.black)
+        local err_text = S.error_message
+            and truncate(S.error_message, S.W - 2)
+            or "Network error — skip or retry"
+        twrite(2, 5, err_text, colors.red, colors.black)
     elseif S.is_loading then
         twrite(2, 5, "Loading...", colors.gray, colors.black)
     elseif S.is_buffering then
@@ -477,9 +479,10 @@ end
 
 local function playNow(item_or_playlist)
     stopSpeakers()
-    S.playing    = true
-    S.is_error   = false
-    S.playing_id = nil
+    S.playing       = true
+    S.is_error      = false
+    S.error_message = nil
+    S.playing_id    = nil
     S.queue      = {}
 
     if item_or_playlist.type == "playlist" then
@@ -495,7 +498,8 @@ end
 
 local function skipTrack()
     if not S.now_playing and #S.queue == 0 then return end
-    S.is_error = false
+    S.is_error      = false
+    S.error_message = nil
     if S.playing then stopSpeakers() end
     if #S.queue > 0 then
         if S.looping == 1 and S.now_playing then table.insert(S.queue, S.now_playing) end
@@ -563,28 +567,25 @@ local function audioLoop()
             local this_id = S.now_playing.id
 
             if S.playing_id ~= this_id then
-                S.playing_id       = this_id
-                S.audio_offset     = 0
-                S.audio_has_more   = false
-                S.playing_status   = 0
-                S.needs_next_chunk = 1
-                S.decoder          = dfpwm.make_decoder()
+                S.playing_id      = this_id
+                S.audio_offset    = 0
+                S.audio_has_more  = false
+                S.segment_ready   = false
+                S.decoder         = dfpwm.make_decoder()
                 requestSegment(S.playing_id, 0)
                 S.is_loading = true
                 signalRedraw()
                 queueEvent("audio_update")
 
-            elseif S.playing_status == 1 and S.needs_next_chunk == 1 then
+            elseif S.segment_ready then
                 while true do
-                    local chunk = S.player_handle.read(CHUNK_SIZE)
+                    local chunk = S.player_handle:read(CHUNK_SIZE)
 
                     if not chunk then
-                        S.player_handle.close()
-                        S.needs_next_chunk = 0
+                        S.player_handle:close()
+                        S.segment_ready = false
 
                         if S.audio_has_more and S.playing and S.playing_id == this_id then
-                            S.playing_status   = 0
-                            S.needs_next_chunk = 1
                             requestSegment(S.playing_id, S.audio_offset)
                             S.is_buffering = true
                             signalRedraw()
@@ -608,32 +609,33 @@ local function audioLoop()
                             S.audio_offset = 0
                             startTrack(S.now_playing)
                         else
-                            S.now_playing  = nil
-                            S.playing      = false
-                            S.playing_id   = nil
-                            S.audio_offset = 0
-                            S.is_loading   = false
-                            S.is_buffering = false
-                            S.is_error     = false
-                            S.elapsed      = 0
-                            S.duration     = 0
+                            S.now_playing   = nil
+                            S.playing       = false
+                            S.playing_id    = nil
+                            S.audio_offset  = 0
+                            S.is_loading    = false
+                            S.is_buffering  = false
+                            S.is_error      = false
+                            S.error_message = nil
+                            S.elapsed       = 0
+                            S.duration      = 0
                         end
                         signalRedraw()
                         break
                     end
 
-                    S.audio_buffer = S.decoder(chunk)
+                    local decoded = S.decoder(chunk)
 
                     -- Elapsed time: each CHUNK_SIZE bytes = CHUNK_SIZE/6000 seconds
                     -- DFPWM at 48kHz = 6000 bytes/sec
                     S.elapsed = S.elapsed + CHUNK_SIZE / 6000
 
-                    local ok = playChunkOnSpeakers(S.audio_buffer)
+                    local ok = playChunkOnSpeakers(decoded)
                     if not ok then
-                        S.playing          = false
-                        S.playing_id       = nil
-                        S.needs_next_chunk = 0
-                        S.is_error         = true
+                        S.playing       = false
+                        S.playing_id    = nil
+                        S.segment_ready = false
+                        S.is_error      = true
                         signalRedraw()
                         break
                     end
@@ -680,23 +682,38 @@ local function httpLoop()
                     S.is_loading      = false
                     S.is_buffering    = false
                     S.player_handle   = fh
-                    S.playing_status  = 1
+                    S.segment_ready   = true
                     signalRedraw()
                     queueEvent("audio_update")
                 end
             end,
             function()
-                local _, url = os.pullEvent("http_failure")
+                local _, url, fail_handle = os.pullEvent("http_failure")
 
                 if url == S.last_search_url then
                     S.search_error = true
                     signalRedraw()
                 elseif url == S.last_download_url then
-                    S.is_loading   = false
-                    S.is_buffering = false
-                    S.is_error     = true
-                    S.playing      = false
-                    S.playing_id   = nil
+                    -- Try to extract server error message from the failure handle
+                    local err_msg = nil
+                    if fail_handle then
+                        pcall(function()
+                            local code = fail_handle.getResponseCode and fail_handle:getResponseCode()
+                            local body = fail_handle.readAll and fail_handle:readAll()
+                            if body and #body > 0 then
+                                err_msg = (code and ("[" .. code .. "] ") or "") .. body
+                            elseif code then
+                                err_msg = "HTTP " .. code
+                            end
+                            fail_handle:close()
+                        end)
+                    end
+                    S.is_loading    = false
+                    S.is_buffering  = false
+                    S.is_error      = true
+                    S.error_message = err_msg
+                    S.playing       = false
+                    S.playing_id    = nil
                     signalRedraw()
                     queueEvent("audio_update")
                 end
@@ -719,14 +736,16 @@ local function handleNowPlayingMouse(x, y)
                 stopSpeakers()
                 S.playing_id = nil
             elseif S.now_playing ~= nil then
-                S.playing_id = nil
-                S.playing    = true
-                S.is_error   = false
+                S.playing_id    = nil
+                S.playing       = true
+                S.is_error      = false
+                S.error_message = nil
             elseif #S.queue > 0 then
-                S.now_playing = table.remove(S.queue, 1)
-                S.playing_id  = nil
-                S.playing     = true
-                S.is_error    = false
+                S.now_playing   = table.remove(S.queue, 1)
+                S.playing_id    = nil
+                S.playing       = true
+                S.is_error      = false
+                S.error_message = nil
                 startTrack(S.now_playing)
             end
             queueEvent("audio_update")
