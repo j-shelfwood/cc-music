@@ -99,25 +99,33 @@ If the public instance is down or you want your own, self-hosting takes about 5 
 
 ## Self-host the backend
 
-### Bare PHP (recommended)
+> ⚠️ **Do not use `php -S`** — it is single-process and will drop concurrent HTTP requests, breaking playback mid-track.
 
-**Requirements:** PHP 8.x, `yt-dlp` in `$PATH`, `ffmpeg` in `$PATH`
+### PHP-FPM + Caddy (recommended)
 
-```bash
-apt install php ffmpeg
-wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
-     -O /usr/local/bin/yt-dlp && chmod +x /usr/local/bin/yt-dlp
-```
-
-Serve `server/index.php` with PHP's built-in server or a web server:
+**Requirements:** PHP 8.1-fpm, `yt-dlp`, `ffmpeg`, Caddy
 
 ```bash
-php -S 0.0.0.0:3001 server/index.php
+apt install php8.1-fpm ffmpeg
+curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+     -o /usr/local/bin/yt-dlp && chmod +x /usr/local/bin/yt-dlp
+git clone https://github.com/j-shelfwood/cc-music.git /opt/cc-music
 ```
 
-Then point a reverse proxy (Caddy, Nginx) at `127.0.0.1:3001`.
+**Caddyfile:**
+```caddy
+your-domain.com {
+  handle /api/* {
+    root * /opt/cc-music/server
+    php_fastcgi unix//run/php/php8.1-fpm.sock {
+      read_timeout 86400s
+    }
+    rewrite * /index.php
+  }
+}
+```
 
-**Nginx — critical settings:**
+**Nginx — critical settings (if using Nginx instead):**
 ```nginx
 fastcgi_read_timeout 86400;  # streams can run for 40+ minutes
 fastcgi_buffering off;        # don't buffer audio in memory
@@ -131,7 +139,7 @@ cd cc-music
 docker compose up -d
 ```
 
-Then point a reverse proxy at `127.0.0.1:3001`.
+Point a reverse proxy at `127.0.0.1:3001`. Set `read_timeout 86400s` (Caddy) or `proxy_read_timeout 86400` (Nginx).
 
 ### After setup — point music.lua at your server
 
@@ -148,7 +156,9 @@ local api_base_url = "https://your-domain.com/api/"
 |---|---|
 | "No speakers found" | Connect a speaker directly or via wired modem; restart Minecraft |
 | "Network error" | Check `yt-dlp` and `ffmpeg` are in PATH; run `yt-dlp -U` to update |
-| Audio stops mid-track | Ensure `fastcgi_read_timeout` is 0 or very large in Nginx config |
+| Audio stops after ~30s | You're using `php -S` — switch to `php-fpm`. It's single-process and drops concurrent requests. |
+| Audio stops mid-track | Reverse proxy timeout too low — set `read_timeout 86400s` (Caddy) or `proxy_read_timeout 86400` (Nginx) |
+| HTTP 500 / stream hangs | Run `yt-dlp -U` to update; some tracks fail if yt-dlp is outdated or selects an HLS stream |
 | Search returns empty | Run `yt-dlp -U` on the server; YouTube occasionally breaks yt-dlp |
 | Monitor shows nothing | Must be an **Advanced** Monitor; plain monitors don't support colour |
 | Pocket Computer: "No speakers" | Restart Minecraft — known CC:Tweaked quirk |
