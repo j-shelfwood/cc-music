@@ -850,8 +850,10 @@ local function doSearch(query)
     S.search_error   = false
     S.search_page    = 0
     if query and #query > 0 then
-        S.last_search     = query
-        S.last_search_url = api_base_url .. "?v=" .. version .. "&search=" .. textutils.urlEncode(query)
+        S.last_search = query
+        -- URLs must not be double-encoded — only encode non-URL queries
+        local encoded = query:match("^https?://") and query or textutils.urlEncode(query)
+        S.last_search_url = api_base_url .. "?v=" .. version .. "&search=" .. encoded
         http.request(S.last_search_url)
     else
         S.last_search     = nil
