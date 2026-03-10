@@ -4,24 +4,36 @@ import Layout from '@/layouts/Layout.astro';
 
 <Layout>
   <!-- Hero -->
-  <section class="max-w-5xl mx-auto px-4 pt-16 pb-12 text-center">
-    <div class="inline-block font-mc text-6xl text-mc-diamond glow-diamond mb-4">♪</div>
-    <h1 class="font-mc text-4xl text-mc-white mb-3">cc-music</h1>
-    <p class="font-mc text-mc-muted text-sm max-w-xl mx-auto leading-relaxed mb-8">
-      Self-hosted YouTube music streaming for CC:Tweaked.<br/>
-      yt-dlp + ffmpeg on your server. No mods beyond CC:Tweaked.
-    </p>
+  <section class="relative w-full min-h-[70vh] flex items-center justify-center overflow-hidden">
+    <!-- Full-bleed background -->
+    <div
+      class="absolute inset-0 bg-cover bg-center bg-no-repeat"
+      style="background-image: url('/screenshot.png');"
+      aria-hidden="true"
+    ></div>
+    <!-- Dark overlay so text stays readable -->
+    <div class="absolute inset-0 bg-black/60" aria-hidden="true"></div>
 
-    <!-- Quick install badges -->
-    <div class="flex flex-wrap gap-3 justify-center">
-      <div class="mc-slot px-4 py-2 font-mc text-sm text-mc-emerald">
-        ✓ Free &amp; open source
-      </div>
-      <div class="mc-slot px-4 py-2 font-mc text-sm text-mc-diamond">
-        ✓ Self-hostable
-      </div>
-      <div class="mc-slot px-4 py-2 font-mc text-sm text-mc-gold">
-        ✓ Public instance at cc-music.shelfwood.co
+    <!-- Hero content -->
+    <div class="relative z-10 text-center px-4 py-20">
+      <div class="inline-block font-mc text-6xl text-mc-diamond glow-diamond mb-4">♪</div>
+      <h1 class="font-mc text-4xl text-mc-white mb-3">cc-music</h1>
+      <p class="font-mc text-mc-muted text-sm max-w-xl mx-auto leading-relaxed mb-8">
+        Self-hosted YouTube music streaming for CC:Tweaked.<br/>
+        yt-dlp + ffmpeg on your server. No mods beyond CC:Tweaked.
+      </p>
+
+      <!-- Quick install badges -->
+      <div class="flex flex-wrap gap-3 justify-center">
+        <div class="mc-slot px-4 py-2 font-mc text-sm text-mc-emerald">
+          ✓ Free &amp; open source
+        </div>
+        <div class="mc-slot px-4 py-2 font-mc text-sm text-mc-diamond">
+          ✓ Self-hostable
+        </div>
+        <div class="mc-slot px-4 py-2 font-mc text-sm text-mc-gold">
+          ✓ Public instance at cc-music.shelfwood.co
+        </div>
       </div>
     </div>
   </section>
