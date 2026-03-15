@@ -8,7 +8,7 @@
 // No PHP execution timeout — streams can take many minutes
 set_time_limit(0);
 
-define('RAPIDAPI_KEY',  getenv('RAPIDAPI_KEY')  ?: '2d30b881bamsh14ffce6e60a7887p1de9bdjsne76d89970609');
+define('RAPIDAPI_KEY',  getenv('RAPIDAPI_KEY') ?: '');
 define('RAPIDAPI_HOST', 'yt-api.p.rapidapi.com');
 
 // Security: sanitize video ID to prevent shell injection
