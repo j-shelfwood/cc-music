@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     curl \
     unzip \
+    netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
 # Install yt-dlp
